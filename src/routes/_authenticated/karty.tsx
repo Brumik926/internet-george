@@ -13,20 +13,25 @@ function KartyPage() {
   const navigate = useNavigate()
 
   // 1. Načítanie reálneho zostatku zo Supabase cloudu
-  const { data: profile, isLoading } = useQuery({
+  const { data: account, isLoading } = useQuery({
     queryKey: ['profile-balance'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return null
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('balance, account_number')
-        .eq('id', user.id)
-        .single()
+      const [profileRes, txnsRes] = await Promise.all([
+        supabase.from('profiles').select('iban').eq('id', user.id).single(),
+        supabase.from('transactions').select('type, amount').eq('user_id', user.id),
+      ])
 
-      if (error) throw error
-      return data
+      if (profileRes.error) throw profileRes.error
+      if (txnsRes.error) throw txnsRes.error
+
+      const balance = (txnsRes.data ?? []).reduce(
+        (sum, t) => sum + (t.type === 'in' ? Number(t.amount) : -Number(t.amount)),
+        0,
+      )
+      return { iban: profileRes.data?.iban ?? '', balance }
     },
   })
 
@@ -52,7 +57,7 @@ function KartyPage() {
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
       <Button 
         variant="ghost" 
-        onClick={() => navigate({ to: '/prehlad' })}
+        onClick={() => navigate({ to: '/' })}
         className="flex items-center gap-2 mb-2"
       >
         <ArrowLeft className="h-4 w-4" /> Späť na Prehľad
@@ -66,10 +71,10 @@ function KartyPage() {
         
         <div className="space-y-2 border-b pb-4 mb-4">
           <p className="text-sm text-muted-foreground">Číslo účtu</p>
-          <p className="font-mono text-lg">{profile?.account_number || 'SK83 0900 0000 0012 3456 7890'}</p>
+          <p className="font-mono text-lg">{account?.iban || '—'}</p>
           <p className="text-sm text-muted-foreground mt-2">Aktuálny zostatok</p>
           <p className="text-3xl font-bold text-primary">
-            {isLoading ? 'Načítavam...' : `${profile?.balance ?? '0.00'} €`}
+            {isLoading ? 'Načítavam...' : `${(account?.balance ?? 0).toFixed(2)} €`}
           </p>
         </div>
 

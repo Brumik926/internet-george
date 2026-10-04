@@ -13,20 +13,25 @@ function PrehladPage() {
   const navigate = useNavigate()
 
   // 1. Načítanie reálneho zostatku používateľa zo Supabase cloudu
-  const { data: profile, isLoading } = useQuery({
+  const { data: account, isLoading } = useQuery({
     queryKey: ['profile-balance'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return null
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('balance, account_number')
-        .eq('id', user.id)
-        .single()
+      const [profileRes, txnsRes] = await Promise.all([
+        supabase.from('profiles').select('iban').eq('id', user.id).single(),
+        supabase.from('transactions').select('type, amount').eq('user_id', user.id),
+      ])
 
-      if (error) throw error
-      return data
+      if (profileRes.error) throw profileRes.error
+      if (txnsRes.error) throw txnsRes.error
+
+      const balance = (txnsRes.data ?? []).reduce(
+        (sum, t) => sum + (t.type === 'in' ? Number(t.amount) : -Number(t.amount)),
+        0,
+      )
+      return { iban: profileRes.data?.iban ?? '', balance }
     },
   })
 
@@ -51,7 +56,7 @@ function PrehladPage() {
             <div>
               <h2 className="font-semibold text-lg">Osobný účet</h2>
               <p className="text-xs text-muted-foreground">
-                {profile?.account_number || 'SK83 0900 0000 0012 3456 7890'}
+                {account?.iban || '—'}
               </p>
             </div>
           </div>
@@ -62,7 +67,7 @@ function PrehladPage() {
         <div className="mt-4">
           <p className="text-xs text-muted-foreground">Dostupný zostatok</p>
           <p className="text-3xl font-extrabold text-primary">
-            {isLoading ? 'Načítavam...' : `${profile?.balance ?? '0.00'} €`}
+            {isLoading ? 'Načítavam...' : `${(account?.balance ?? 0).toFixed(2)} €`}
           </p>
         </div>
 
