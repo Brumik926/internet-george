@@ -141,9 +141,17 @@ export default function GeorgePrehlad() {
             </div>
 
             <div className="mt-5 flex items-center justify-between">
-              <span className="inline-flex items-center justify-center rounded-full bg-[#eef4ff] hover:bg-[#e0ecff] dark:bg-[#1b273d] dark:hover:bg-[#233454] px-4 py-2 text-[14px] font-medium text-[#196ee6] dark:text-[#60a5fa] transition">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate({ to: "/nova-platba" });
+                }}
+                className="inline-flex items-center justify-center rounded-full bg-[#eef4ff] hover:bg-[#e0ecff] dark:bg-[#1b273d] dark:hover:bg-[#233454] px-4 py-2 text-[14px] font-medium text-[#196ee6] dark:text-[#60a5fa] transition"
+              >
                 Nová platba
-              </span>
+              </button>
               <span className="p-1 text-[#196ee6] dark:text-[#38bdf8] opacity-80 group-hover:opacity-100 transition">
                 <MoreVertical className="w-5 h-5" />
               </span>

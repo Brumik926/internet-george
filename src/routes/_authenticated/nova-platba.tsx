@@ -78,14 +78,15 @@ export default function NovaPlatba() {
     setError("");
 
     try {
-      if (bioSupported) {
-        if (!isBiometricEnabled(user.id)) {
-          await enableBiometric(user.id, user.email ?? "George");
-        } else {
-          const verified = await verifyBiometric(user.id);
-          if (!verified) throw new Error("Overenie biometriou zlyhalo.");
-        }
+      if (!bioSupported) {
+        throw new Error("Toto zariadenie nepodporuje overenie odtlačkom prsta.");
       }
+      if (!isBiometricEnabled(user.id)) {
+        await enableBiometric(user.id, user.email ?? "George");
+      }
+      // Každá platba sa vždy potvrdí odtlačkom/tvárou
+      const verified = await verifyBiometric(user.id);
+      if (!verified) throw new Error("Overenie biometriou zlyhalo.");
 
       addTransaction({
         type: "out",

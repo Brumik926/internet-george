@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
+import { Fingerprint } from "lucide-react";
+import { clearUnlocked, isBiometricEnabled, isBiometricSupported, isUnlocked, verifyBiometric } from "@/lib/biometric";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -33,11 +35,42 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
 
+  const [bioUser, setBioUser] = useState<string | null>(null);
+  const [bioSupported, setBioSupported] = useState(false);
+
   useEffect(() => {
+    void isBiometricSupported().then(setBioSupported);
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/", replace: true });
+      const uid = data.session?.user.id;
+      if (!uid) return;
+      if (isBiometricEnabled(uid) && !isUnlocked(uid)) {
+        setBioUser(uid);
+        return;
+      }
+      navigate({ to: "/", replace: true });
     });
   }, [navigate]);
+
+  async function biometricLogin() {
+    if (!bioUser) return;
+    setBusy(true);
+    try {
+      const ok = await verifyBiometric(bioUser);
+      if (!ok) throw new Error();
+      toast.success("Prihlásenie odtlačkom úspešné.");
+      navigate({ to: "/", replace: true });
+    } catch {
+      toast.error("Overenie odtlačkom sa nepodarilo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function useOtherAccount() {
+    clearUnlocked();
+    await supabase.auth.signOut();
+    setBioUser(null);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -101,7 +134,25 @@ function AuthPage() {
 
       <div className="-mt-10 px-5">
         <div className="rounded-3xl border border-border bg-surface p-5 shadow-lg">
-          {sent ? (
+          {bioUser ? (
+            <div className="space-y-3 text-center">
+              <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Fingerprint className="size-9" />
+              </div>
+              <p className="text-sm text-muted-foreground">Prihláste sa odtlačkom prsta alebo tvárou.</p>
+              <button
+                type="button"
+                onClick={biometricLogin}
+                disabled={busy || !bioSupported}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60"
+              >
+                <Fingerprint className="size-5" /> {busy ? "Overujem…" : "Prihlásiť odtlačkom"}
+              </button>
+              <button type="button" onClick={useOtherAccount} className="w-full text-sm text-muted-foreground underline">
+                Prihlásiť sa iným účtom
+              </button>
+            </div>
+          ) : sent ? (
             <p className="text-sm text-muted-foreground">
               Skontrolujte si e-mail <strong className="text-foreground">{email}</strong> a potvrďte registráciu.
               Potom sa môžete prihlásiť.
