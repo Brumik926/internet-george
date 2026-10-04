@@ -156,21 +156,21 @@ function KartyPage() {
               <p className="text-muted-foreground">Výber z bankomatu</p>
               <p className="font-semibold">{fmt(atmLimit)}</p>
             </div>
-            <Slider value={[atmLimit]} onValueChange={([v]) => setAtmLimit(v)} min={0} max={2000} step={50} />
+            <Slider value={[atmLimit]} onValueChange={(v) => setAtmLimit(v[0] ?? 0)} min={0} max={2000} step={50} />
           </div>
           <div>
             <div className="flex justify-between mb-2">
               <p className="text-muted-foreground">Platby u obchodníkov (POS)</p>
               <p className="font-semibold">{fmt(posLimit)}</p>
             </div>
-            <Slider value={[posLimit]} onValueChange={([v]) => setPosLimit(v)} min={0} max={5000} step={50} />
+            <Slider value={[posLimit]} onValueChange={(v) => setPosLimit(v[0] ?? 0)} min={0} max={5000} step={50} />
           </div>
           <div>
             <div className="flex justify-between mb-2">
               <p className="text-muted-foreground">Internetový limit</p>
               <p className="font-semibold">{fmt(netLimit)}</p>
             </div>
-            <Slider value={[netLimit]} onValueChange={([v]) => setNetLimit(v)} min={0} max={3000} step={50} />
+            <Slider value={[netLimit]} onValueChange={(v) => setNetLimit(v[0] ?? 0)} min={0} max={3000} step={50} />
           </div>
         </div>
       </Card>
