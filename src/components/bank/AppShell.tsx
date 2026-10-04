@@ -1,12 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { 
-  TrendingUp, 
-  LayoutGrid, 
-  MessageSquare, 
-  ArrowLeft 
-} from "lucide-react";
+import { Send, CreditCard, FileText, ArrowLeft } from "lucide-react";
 
 // George "g" logo pre záložku Prehľad
 function GeorgeGIcon({ className = "w-6 h-6" }: { className?: string }) {
@@ -31,10 +26,9 @@ function GeorgeFitIcon({ className = "w-6 h-6" }: { className?: string }) {
 
 export const defaultGeorgeNavItems = [
   { to: "/", label: "Prehľad", icon: GeorgeGIcon },
-  { to: "/fit", label: "FIT", icon: GeorgeFitIcon },
-  { to: "/invest", label: "Invest", icon: TrendingUp },
-  { to: "/rozpocet", label: "Objavujte", icon: LayoutGrid },
-  { to: "/kontakty", label: "Kontakty", icon: MessageSquare },
+  { to: "/nova-platba", label: "Nová platba", icon: Send },
+  { to: "/karty", label: "Karty", icon: CreditCard },
+  { to: "/platby", label: "Detaily účtu", icon: FileText },
 ] as const;
 
 export function AppShell({ 
@@ -62,7 +56,7 @@ export function PersistentBottomNav({
 
   return createPortal(
     <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[430px] border-t border-slate-200/90 dark:border-zinc-800/80 bg-white/95 dark:bg-[#0f1218]/95 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_24px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors">
-      <div className="grid grid-cols-5 px-1">
+      <div className="grid grid-cols-4 px-1">
         {items.map(({ to, label, icon: Icon }) => {
           const active = to === "/" ? path === "/" : path.startsWith(to);
           return (
