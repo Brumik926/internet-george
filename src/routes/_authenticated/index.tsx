@@ -14,6 +14,10 @@ export const Route = createFileRoute("/_authenticated/")({
     meta: [
       { title: "Prehľad | George" },
       { name: "description", content: "Prehľad George SLSP" },
+      { property: "og:title", content: "Prehľad | George" },
+      { property: "og:description", content: "Zostatok účtu, príjmy a výdavky v George." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: GeorgePrehlad,
@@ -108,7 +112,7 @@ export default function GeorgePrehlad() {
 
           {/* 1. Karta: Účet — klikateľná, s reálnym zostatkom */}
           <Link
-            to="/karty"
+            to="/platby"
             className="group relative block overflow-hidden rounded-2xl bg-white dark:bg-[#161a23] p-5 shadow-sm border border-slate-100 dark:border-zinc-800/40 before:absolute before:inset-x-0 before:top-0 before:h-[3.5px] before:bg-gradient-to-r before:from-[#d946ef] before:to-[#f43f5e] active:scale-[0.99] transition cursor-pointer"
           >
             <div className="flex items-start justify-between">

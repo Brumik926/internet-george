@@ -58,6 +58,9 @@
   --detail-action: #4a96fa;
   --detail-action-surface: #253249;
   --detail-direction: #142f3d;
+  --payment-card-background: #1764b4;
+  --payment-card-chip: #dfd8b8;
+  --payment-card-chip-line: #857e65;
 
   /* Nočný režim (Dark mode) */
   --background: #0f141c;
@@ -145,6 +148,9 @@
   font-family: Arial, system-ui, sans-serif;
   letter-spacing: 0;
 }
+
+.payment-card { background: var(--payment-card-background); }
+.payment-card-chip { color: var(--payment-card-chip); }
 
 
 @keyframes screen-enter {
