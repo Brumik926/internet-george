@@ -82,16 +82,16 @@ function KartyPage() {
           <h2 className="text-lg font-semibold mb-3">História transakcií</h2>
           {transactions && transactions.length > 0 ? (
             <div className="space-y-2">
-              {transactions.map((tx: any) => (
+              {transactions.map((tx) => (
                 <div key={tx.id} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                   <div>
-                    <p className="font-medium">{tx.title || tx.recipient_name || 'Platba'}</p>
+                    <p className="font-medium">{tx.counterparty}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(tx.created_at).toLocaleDateString('sk-SK')}
+                      {new Date(tx.date).toLocaleDateString('sk-SK')}
                     </p>
                   </div>
-                  <span className={`font-semibold ${tx.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {tx.amount > 0 ? `+${tx.amount}` : tx.amount} €
+                  <span className={`font-semibold ${tx.type === 'in' ? 'text-green-600' : 'text-red-600'}`}>
+                    {tx.type === 'in' ? '+' : '−'}{Number(tx.amount).toFixed(2)} €
                   </span>
                 </div>
               ))}
