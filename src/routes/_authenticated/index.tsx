@@ -45,7 +45,7 @@ export default function GeorgePrehlad() {
             <Link to="/platby" className="p-1 text-white hover:text-white/80 transition" aria-label="Hľadať">
               <Search className="w-6 h-6 stroke-[2.2]" />
             </Link>
-            <Link to="/platby" className="p-1 text-white hover:text-white/80 transition" aria-label="Karty">
+            <Link to="/karty" className="p-1 text-white hover:text-white/80 transition" aria-label="Karty">
               <CreditCard className="w-6 h-6 stroke-[2.2]" />
             </Link>
             <Link
@@ -108,7 +108,7 @@ export default function GeorgePrehlad() {
 
           {/* 1. Karta: Účet — klikateľná, s reálnym zostatkom */}
           <Link
-            to="/platby"
+            to="/karty"
             className="group relative block overflow-hidden rounded-2xl bg-white dark:bg-[#161a23] p-5 shadow-sm border border-slate-100 dark:border-zinc-800/40 before:absolute before:inset-x-0 before:top-0 before:h-[3.5px] before:bg-gradient-to-r before:from-[#d946ef] before:to-[#f43f5e] active:scale-[0.99] transition cursor-pointer"
           >
             <div className="flex items-start justify-between">
