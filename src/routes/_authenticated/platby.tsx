@@ -78,7 +78,7 @@ export default function UcetDetail() {
 
     return Object.keys(groups)
       .sort((a, b) => b.localeCompare(a))
-      .map((k) => groups[k]);
+      .map((k) => groups[k]!);
   }, [s.transactions]);
 
   const copyIban = () => {
