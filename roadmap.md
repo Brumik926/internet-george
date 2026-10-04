@@ -16,3 +16,4 @@
 - [x] Odomykanie aplikácie odtlačkom prsta / tvárou (zámka obrazovky)
 - [x] Ochrana prihlásených obrazoviek pred prázdnym zobrazením pri chybe načítania
 - [x] Upraviť detail odoslanej platby podľa priloženej fotografie
+- [x] Obnoviť samostatnú obrazovku Karty s maskovaným číslom a jasne označeným ukážkovým blokovaním; bankové údaje kariet nie sú pripojené.
