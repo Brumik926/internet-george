@@ -109,6 +109,12 @@ function toggleTheme() {
   }
 
   async function signOut() {
+    // S odtlačkom prsta: len zamkneme aplikáciu, aby sa dalo znova prihlásiť odtlačkom
+    if (userId && isBiometricEnabled(userId)) {
+      clearUnlocked();
+      navigate({ to: "/auth", replace: true });
+      return;
+    }
     await queryClient.cancelQueries();
     queryClient.clear();
     resetStore();
