@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
+import { DeploymentGuard } from "@/components/DeploymentGuard";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { resetStore } from "@/lib/bank-store";
@@ -142,6 +143,8 @@ function RootComponent() {
     }
   }, []);
   useEffect(() => {
+    // Bez konfigurácie backendu sa nepripájaj — DeploymentGuard zobrazí správu o obnovení.
+    if (!import.meta.env["VITE_SUPABASE_URL"] || !import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]) return;
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       resetStore();
@@ -157,7 +160,9 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <main className="screen-transition">
-        <Outlet />
+        <DeploymentGuard>
+          <Outlet />
+        </DeploymentGuard>
       </main>
       <Toaster position="top-center" />
     </QueryClientProvider>
