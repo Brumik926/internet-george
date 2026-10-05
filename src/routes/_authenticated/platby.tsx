@@ -11,7 +11,8 @@ import {
   SlidersHorizontal,
   ArrowUpRight,
   ArrowDownLeft,
-  Copy
+  Copy,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/bank/AppShell";
@@ -53,33 +54,62 @@ export default function UcetDetail() {
   const cents = Math.round((absVal - Math.floor(absVal)) * 100).toString().padStart(2, "0");
   const formattedOwnResources = `${isNegative ? "-" : ""}${wholeEuros},${cents} € vlastné zdroje`;
 
-  // Dynamické zoskupenie reálnych transakcií z databázy podľa mesiaca a roka
+  // Filtre
+  const [query, setQuery] = useState("");
+  const [direction, setDirection] = useState<"all" | "in" | "out">("all");
+  const [category, setCategory] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "amount">("newest");
+
+  const categories = useMemo(
+    () => Array.from(new Set(s.transactions.map((t) => t.category))).sort(),
+    [s.transactions],
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const qNum = Number(q.replace(",", "."));
+    return s.transactions.filter((t) => {
+      if (direction !== "all" && t.type !== direction) return false;
+      if (category !== "all" && t.category !== category) return false;
+      if (!q) return true;
+      const hay = [t.counterparty, t.note, t.vs, t.iban, t.category].filter(Boolean).join(" ").toLowerCase();
+      if (hay.includes(q)) return true;
+      return Number.isFinite(qNum) && qNum > 0 && t.amount.toFixed(2).includes(qNum.toString());
+    });
+  }, [s.transactions, query, direction, category]);
+
+  const filtersActive = query.trim() !== "" || direction !== "all" || category !== "all" || sortBy !== "newest";
+  const filteredSum = filtered.reduce((sum, t) => sum + (t.type === "in" ? t.amount : -t.amount), 0);
+  const resetFilters = () => { setQuery(""); setDirection("all"); setCategory("all"); setSortBy("newest"); };
+
   const groupedTransactions = useMemo(() => {
+    if (sortBy === "amount") {
+      return [{ label: "Podľa sumy", items: [...filtered].sort((a, b) => b.amount - a.amount) }];
+    }
     const groups: { [key: string]: { label: string; items: Txn[] } } = {};
-
-    // Zoradíme od najnovších po najstaršie
-    const sorted = [...s.transactions].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    const dir = sortBy === "oldest" ? 1 : -1;
+    const sorted = [...filtered].sort(
+      (a, b) => dir * (new Date(a.date).getTime() - new Date(b.date).getTime())
     );
-
     sorted.forEach((txn) => {
       const d = new Date(txn.date);
       const monthIdx = d.getUTCMonth();
       const year = d.getUTCFullYear();
-      const monthName = MONTHS[monthIdx] || "Neznámy";
       const key = `${year}-${String(monthIdx).padStart(2, "0")}`;
-      const label = `${monthName} ${year}`;
-
-      if (!groups[key]) {
-        groups[key] = { label, items: [] };
-      }
+      if (!groups[key]) groups[key] = { label: `${MONTHS[monthIdx] || "Neznámy"} ${year}`, items: [] };
       groups[key].items.push(txn);
     });
-
     return Object.keys(groups)
-      .sort((a, b) => b.localeCompare(a))
+      .sort((a, b) => (sortBy === "oldest" ? a.localeCompare(b) : b.localeCompare(a)))
       .map((k) => groups[k]!);
-  }, [s.transactions]);
+  }, [filtered, sortBy]);
+
+  const chip = (active: boolean) =>
+    `shrink-0 rounded-full border px-3 py-1.5 text-[13px] font-medium transition ${
+      active
+        ? "border-[#196ee6] bg-[#196ee6] text-white dark:border-[#38bdf8] dark:bg-[#38bdf8] dark:text-[#0e1117]"
+        : "border-slate-200 bg-white text-slate-700 dark:border-zinc-700 dark:bg-[#161a23] dark:text-zinc-300"
+    }`;
 
   const copyIban = () => {
     if (s.iban) {
@@ -202,10 +232,67 @@ export default function UcetDetail() {
                 </div>
               </div>
 
+              {/* Hľadanie a filtre */}
+              <div className="space-y-3">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Hľadať partnera, sumu, VS, poznámku…"
+                    aria-label="Hľadať v transakciách"
+                    className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-10 text-[15px] text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#196ee6] dark:border-zinc-700 dark:bg-[#161a23] dark:text-white"
+                  />
+                  {query && (
+                    <button type="button" onClick={() => setQuery("")} aria-label="Vymazať hľadanie" className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+                  {([["all", "Všetky"], ["out", "Výdavky"], ["in", "Príjmy"]] as const).map(([v, l]) => (
+                    <button key={v} type="button" onClick={() => setDirection(v)} className={chip(direction === v)}>{l}</button>
+                  ))}
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                    aria-label="Zoradiť"
+                    className={chip(sortBy !== "newest") + " outline-none"}
+                  >
+                    <option value="newest">Najnovšie</option>
+                    <option value="oldest">Najstaršie</option>
+                    <option value="amount">Najvyššia suma</option>
+                  </select>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+                  <button type="button" onClick={() => setCategory("all")} className={chip(category === "all")}>Všetky kategórie</button>
+                  {categories.map((c) => (
+                    <button key={c} type="button" onClick={() => setCategory(c)} className={chip(category === c)}>{c}</button>
+                  ))}
+                </div>
+                {filtersActive && (
+                  <div className="flex items-center justify-between px-1 text-[13px] text-slate-500 dark:text-zinc-400">
+                    <span>
+                      Nájdené: {filtered.length} · {filteredSum >= 0 ? "+" : "−"}{formatEur(Math.abs(filteredSum))}
+                    </span>
+                    <button type="button" onClick={resetFilters} className="font-semibold text-[#196ee6] dark:text-[#38bdf8]">
+                      Zrušiť filtre
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Reálne transakcie z databázy zoskupené po mesiacoch */}
               {groupedTransactions.length === 0 ? (
                 <div className="rounded-2xl bg-white dark:bg-[#161a23] p-8 text-center text-slate-400">
-                  Zatiaľ žiadne zaznamenané transakcie.
+                  {filtersActive ? (
+                    <>
+                      <p>Žiadna transakcia nezodpovedá filtrom.</p>
+                      <button type="button" onClick={resetFilters} className="mt-3 text-[13px] font-semibold text-[#196ee6] dark:text-[#38bdf8]">Zrušiť filtre</button>
+                    </>
+                  ) : (
+                    "Zatiaľ žiadne zaznamenané transakcie."
+                  )}
                 </div>
               ) : (
                 groupedTransactions.map((group) => (
