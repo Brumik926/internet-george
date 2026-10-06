@@ -27,6 +27,10 @@ export const Route = createFileRoute("/_authenticated/nova-platba")({
   head: () => ({
     meta: [
       { title: "Nová platba | George" },
+      { property: "og:title", content: "Nová platba | George" },
+      { property: "og:description", content: "Zadajte prevod so skenovaním QR kódu a biometrickým potvrdením." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "description", content: "Zadajte prevod so skenovaním a biometrickým potvrdením v George." },
     ],
   }),

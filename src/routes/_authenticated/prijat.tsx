@@ -9,6 +9,10 @@ export const Route = createFileRoute("/_authenticated/prijat")({
   head: () => ({
     meta: [
       { title: "Prijať peniaze | George" },
+      { property: "og:title", content: "Prijať peniaze | George" },
+      { property: "og:description", content: "Zaevidujte prijatý prevod alebo zdieľajte svoj IBAN." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "description", content: "Zaevidujte prijatý prevod alebo zdieľajte svoj IBAN pre platbu." },
     ],
   }),
