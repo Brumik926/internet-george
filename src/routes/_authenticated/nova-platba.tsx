@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_authenticated/nova-platba")({
 const field =
   "w-full rounded-2xl border border-border bg-surface px-4 py-3 text-[15px] outline-none placeholder:text-muted-foreground focus:border-primary";
 
-export default function NovaPlatba() {
+function NovaPlatba() {
   const s = useBank();
   const navigate = useNavigate();
   const { user } = Route.useRouteContext();
