@@ -12,3 +12,5 @@
 - Theme state uses `html.light` for day mode and its absence for night mode; restore the saved choice at the root so all routes and dark variants share one source of truth.
 - Transaction detail colors use dedicated semantic tokens with light-mode aliases so its reference styling does not change other screens.
 - The Cards route renders card controls separately from account history; unconnected card operations must be explicitly marked as demonstrations to avoid claiming bank-side changes.
+
+- Profile and account avatars use the shared InitialsAvatar component derived from the profile owner name, so no screen depends on external photo URLs.

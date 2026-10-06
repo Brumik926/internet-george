@@ -7,6 +7,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { AppShell } from "@/components/bank/AppShell";
+import { InitialsAvatar } from "@/components/bank/InitialsAvatar";
 import { balance, monthTotals, MONTHS, useBank } from "@/lib/bank-store";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -23,7 +24,7 @@ export const Route = createFileRoute("/_authenticated/")({
   component: GeorgePrehlad,
 });
 
-export default function GeorgePrehlad() {
+function GeorgePrehlad() {
   const s = useBank();
   const navigate = useNavigate();
 
@@ -54,10 +55,10 @@ export default function GeorgePrehlad() {
             </Link>
             <Link
               to="/nastavenia"
-              className="relative flex w-8 h-8 items-center justify-center rounded-full bg-amber-400 text-zinc-900 font-bold overflow-hidden shadow ring-2 ring-white/30 dark:ring-zinc-800"
+              className="relative flex rounded-full shadow ring-2 ring-white/30 dark:ring-zinc-800"
               aria-label="Profil"
             >
-              <span className="text-sm">🦁</span>
+              <InitialsAvatar name={s.owner} className="w-8 h-8 text-[12px]" />
               <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-[#ff4d6d] ring-2 ring-[#196ee6] dark:ring-[#0e1117]" />
             </Link>
           </div>
@@ -135,13 +136,7 @@ export default function GeorgePrehlad() {
                 </p>
               </div>
 
-              <div className="w-12 h-12 rounded-full overflow-hidden border border-slate-200 dark:border-zinc-700/60 shrink-0 bg-slate-100 dark:bg-zinc-800">
-                <img
-                  src="https://images.unsplash.com/photo-1477959858617-67f30bc75b82?w=120&auto=format&fit=crop&q=80"
-                  alt="Účet"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <InitialsAvatar name={s.owner} />
             </div>
 
             <div className="mt-5 flex items-center justify-between">
