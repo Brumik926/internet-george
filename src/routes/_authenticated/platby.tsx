@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/bank/AppShell";
+import { InitialsAvatar } from "@/components/bank/InitialsAvatar";
 import { balance, formatDate, formatEur, MONTHS, useBank, type Txn } from "@/lib/bank-store";
 
 export const Route = createFileRoute("/_authenticated/platby")({
@@ -23,6 +24,10 @@ export const Route = createFileRoute("/_authenticated/platby")({
     meta: [
       { title: "Účet a transakcie | George" },
       { name: "description", content: "História transakcií a správa účtu George" },
+      { property: "og:title", content: "Účet a transakcie | George" },
+      { property: "og:description", content: "História transakcií, vyhľadávanie a filtre účtu George." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: UcetDetail,
@@ -41,7 +46,7 @@ function SlspLogoIcon() {
   );
 }
 
-export default function UcetDetail() {
+function UcetDetail() {
   const s = useBank();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"transakcie" | "funkcie" | "karty" | "info">("transakcie");
@@ -156,13 +161,7 @@ export default function UcetDetail() {
                 </p>
               </div>
 
-              <div className="w-12 h-12 rounded-full overflow-hidden border border-slate-200 dark:border-zinc-700/60 shrink-0 bg-slate-100 dark:bg-zinc-800">
-                <img
-                  src="https://images.unsplash.com/photo-1477959858617-67f30bc75b82?w=120&auto=format&fit=crop&q=80"
-                  alt="Účet"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <InitialsAvatar name={s.owner} />
             </div>
           </div>
 
@@ -308,7 +307,7 @@ export default function UcetDetail() {
                         return (
                           <div
                             key={t.id}
-                            onClick={() => navigate({ to: `/transakcia/${t.id}` as any })}
+                            onClick={() => navigate({ to: "/transakcia/$id", params: { id: t.id } })}
                             className="cursor-pointer flex items-center justify-between rounded-2xl bg-white dark:bg-[#161a23] p-4 shadow-sm border border-slate-100 dark:border-zinc-800/40 hover:bg-slate-50 dark:hover:bg-[#1c212c] transition"
                           >
                             <div className="flex items-center gap-3">
