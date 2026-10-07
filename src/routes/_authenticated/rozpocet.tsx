@@ -33,7 +33,7 @@ const field =
 function Rozpocet() {
   const s = useBank();
   const { income, expense } = monthTotals(s);
-  const month = MONTHS[new Date().getUTCMonth()];
+  const month = MONTHS[new Date().getMonth()];
   const [category, setCategory] = useState<string>("Potraviny");
   const [limit, setLimit] = useState("");
 

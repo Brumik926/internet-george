@@ -49,6 +49,15 @@ function iso(y: number, m: number, d: number) {
   return new Date(Date.UTC(y, m - 1, d, 10, 0, 0)).toISOString();
 }
 
+/** Rovnaké ako iso(), ale dátum v budúcnosti posunie o mesiac dozadu,
+ *  aby ukážkové transakcie nikdy neboli „z budúcnosti“ a nové platby
+ *  sa v histórii zoradili nad nimi. */
+function isoNotInFuture(y: number, m: number, d: number) {
+  const t = new Date(Date.UTC(y, m - 1, d, 10, 0, 0));
+  if (t.getTime() > Date.now()) t.setUTCMonth(t.getUTCMonth() - 1);
+  return t.toISOString();
+}
+
 function randomIban() {
   let digits = "";
   for (let i = 0; i < 16; i++) digits += Math.floor(Math.random() * 10);
@@ -64,12 +73,12 @@ function seedTransactions() {
   const py = m === 1 ? y - 1 : y;
   const rows: Omit<Txn, "id">[] = [
     { type: "in", counterparty: "Počiatočný zostatok", amount: 40598.5, date: iso(py, pm, 1), category: "Ostatné príjmy" },
-    { type: "in", counterparty: "Mzda · Karavela s.r.o.", amount: 1840, date: iso(y, m, 5), category: "Mzda", vs: "0100" },
-    { type: "out", counterparty: "Billa", amount: 68.4, date: iso(y, m, 7), category: "Potraviny" },
-    { type: "out", counterparty: "Nájom · Byt Petržalka", amount: 520, date: iso(y, m, 8), category: "Bývanie" },
-    { type: "in", counterparty: "Radina Olha", iban: "SK42 1100 0000 0029 3633 0786", amount: 120, date: iso(y, m, 11), category: "Ostatné príjmy", note: "Vrátenie pôžičky" },
-    { type: "out", counterparty: "Poplatok za vedenie účtu", amount: 7, date: iso(y, m, 12), category: "Poplatky", vs: "0898" },
-    { type: "out", counterparty: "Slovnaft", amount: 52.1, date: iso(y, m, 14), category: "Doprava" },
+    { type: "in", counterparty: "Mzda · Karavela s.r.o.", amount: 1840, date: isoNotInFuture(y, m, 5), category: "Mzda", vs: "0100" },
+    { type: "out", counterparty: "Billa", amount: 68.4, date: isoNotInFuture(y, m, 7), category: "Potraviny" },
+    { type: "out", counterparty: "Nájom · Byt Petržalka", amount: 520, date: isoNotInFuture(y, m, 8), category: "Bývanie" },
+    { type: "in", counterparty: "Radina Olha", iban: "SK42 1100 0000 0029 3633 0786", amount: 120, date: isoNotInFuture(y, m, 11), category: "Ostatné príjmy", note: "Vrátenie pôžičky" },
+    { type: "out", counterparty: "Poplatok za vedenie účtu", amount: 7, date: isoNotInFuture(y, m, 12), category: "Poplatky", vs: "0898" },
+    { type: "out", counterparty: "Slovnaft", amount: 52.1, date: isoNotInFuture(y, m, 14), category: "Doprava" },
     { type: "in", counterparty: "Mzda · Karavela s.r.o.", amount: 1840, date: iso(py, pm, 5), category: "Mzda" },
     { type: "out", counterparty: "Nájom · Byt Petržalka", amount: 520, date: iso(py, pm, 8), category: "Bývanie" },
     { type: "out", counterparty: "Kino Lumière", amount: 18, date: iso(py, pm, 19), category: "Zábava" },
@@ -342,7 +351,7 @@ export function balance(s: BankState) {
 
 export function inMonth(t: Txn, d = new Date()) {
   const x = new Date(t.date);
-  return x.getUTCFullYear() === d.getUTCFullYear() && x.getUTCMonth() === d.getUTCMonth();
+  return x.getFullYear() === d.getFullYear() && x.getMonth() === d.getMonth();
 }
 
 export function monthTotals(s: BankState, d = new Date()) {
@@ -377,7 +386,7 @@ export function formatEur(n: number) {
 
 export function formatDate(iso: string) {
   const d = new Date(iso);
-  return `${String(d.getUTCDate()).padStart(2, "0")}.${String(d.getUTCMonth() + 1).padStart(2, "0")}.${d.getUTCFullYear()}`;
+  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
 }
 
 export function groupByMonth(txns: Txn[]) {
@@ -385,7 +394,7 @@ export function groupByMonth(txns: Txn[]) {
   const sorted = [...txns].sort((a, b) => b.date.localeCompare(a.date));
   for (const t of sorted) {
     const d = new Date(t.date);
-    const key = `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+    const key = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(t);
   }
