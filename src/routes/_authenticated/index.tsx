@@ -5,10 +5,13 @@ import {
   BarChart2,
   MoreVertical,
   ShoppingBag,
+  TrendingUp,
+  ChevronRight,
+  ArrowUpRight,
 } from "lucide-react";
 import { AppShell } from "@/components/bank/AppShell";
 import { InitialsAvatar } from "@/components/bank/InitialsAvatar";
-import { balance, monthTotals, MONTHS, useBank } from "@/lib/bank-store";
+import { balance, monthTotals, MONTHS, inMonth, useBank } from "@/lib/bank-store";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -24,6 +27,25 @@ export const Route = createFileRoute("/_authenticated/")({
   component: GeorgePrehlad,
 });
 
+// George farby pre jednotlivé kategórie výdavkov
+const CATEGORY_COLORS: Record<string, string> = {
+  Potraviny: "#f97316", // oranžová
+  Bývanie: "#8b5cf6",  // fialová
+  Doprava: "#0ea5e9",  // svetlomodrá
+  Zábava: "#ec4899",   // ružová
+  Zdravie: "#10b981",  // smaragdová
+  Poplatky: "#64748b", // bridlicová
+  Ostatné: "#94a3b8",  // neutrálna sivá
+};
+
+function getGreeting(ownerName: string) {
+  const hour = new Date().getHours();
+  const firstName = ownerName.trim().split(" ")[0] || "klient";
+  if (hour < 10) return `Dobré ráno, ${firstName}`;
+  if (hour < 18) return `Dobrý deň, ${firstName}`;
+  return `Dobrý večer, ${firstName}`;
+}
+
 function GeorgePrehlad() {
   const s = useBank();
   const navigate = useNavigate();
@@ -31,21 +53,39 @@ function GeorgePrehlad() {
   // Reálne dáta z databázy
   const currentBalance = balance(s);
   const { income, expense } = monthTotals(s);
-  const currentMonthName = (MONTHS[new Date().getMonth()] ?? "október").toLowerCase();
+  const currentMonthIdx = new Date().getMonth();
+  const currentMonthName = (MONTHS[currentMonthIdx] ?? "október").toLowerCase();
 
   const isNegative = currentBalance < 0;
   const absVal = Math.abs(currentBalance);
   const wholeEuros = Math.floor(absVal).toLocaleString("sk-SK");
   const cents = Math.round((absVal - Math.floor(absVal)) * 100).toString().padStart(2, "0");
-
   const formattedOwnResources = `${isNegative ? "-" : ""}${wholeEuros},${cents} € vlastné zdroje`;
+
+  // Výpočet rozdelenia výdavkov podľa kategórií za tento mesiac
+  const currentMonthExpenses = s.transactions.filter(
+    (t) => t.type === "out" && inMonth(t)
+  );
+  const currentMonthIncomeCount = s.transactions.filter(
+    (t) => t.type === "in" && inMonth(t)
+  ).length;
+
+  const categoryTotals = currentMonthExpenses.reduce<Record<string, number>>((acc, t) => {
+    const cat = t.category || "Ostatné";
+    acc[cat] = (acc[cat] || 0) + t.amount;
+    return acc;
+  }, {});
+
+  const sortedCategories = Object.entries(categoryTotals)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3); // TOP 3 kategórie do legendy
 
   return (
     <AppShell>
       <div className="min-h-screen bg-[#f2f4f8] dark:bg-[#0e1117] text-slate-900 dark:text-white pb-28 font-sans transition-colors duration-200">
         
-        {/* V dennom režime George modrá hlavička, v tmavom režime čisté tmavé pozadie */}
-        <div className="bg-[#196ee6] dark:bg-transparent px-4 pt-3 pb-6 text-white transition-colors">
+        {/* George modrá hlavička so zaobleným spodným okrajom */}
+        <div className="bg-[#196ee6] dark:bg-transparent px-4 pt-3 pb-7 text-white rounded-b-[28px] shadow-sm transition-colors">
           <div className="flex items-center justify-end gap-3.5 pt-1 pb-1">
             <Link to="/platby" className="p-1 text-white hover:text-white/80 transition" aria-label="Hľadať">
               <Search className="w-6 h-6 stroke-[2.2]" />
@@ -63,50 +103,114 @@ function GeorgePrehlad() {
             </Link>
           </div>
 
-          <h1 className="text-[34px] font-extrabold tracking-tight text-white mt-2 mb-4">
-            Prehľad
-          </h1>
+          {/* Autentické uvítanie a nadpis */}
+          <div className="mt-1 mb-4">
+            <p className="text-[13px] font-medium text-white/85 dark:text-zinc-400">
+              {getGreeting(s.owner)}
+            </p>
+            <h1 className="text-[32px] font-extrabold tracking-tight text-white">
+              Prehľad
+            </h1>
+          </div>
 
-          {/* Dve karty: Reálne Výdavky a Príjmy za mesiac */}
+          {/* Dve karty: Výdavky s mini grafom a Príjmy */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-white dark:bg-[#161a23] p-4 text-slate-900 dark:text-white shadow-sm border border-slate-100/80 dark:border-zinc-800/40">
-              <div className="flex items-center justify-between text-[13px] font-medium text-slate-700 dark:text-zinc-300">
-                <span>Výdavky za {currentMonthName}</span>
-                <span className="flex w-6 h-6 items-center justify-center rounded-full bg-[#edf4ff] dark:bg-[#182a3e] text-[#196ee6] dark:text-[#38bdf8]">
+            {/* Karta Výdavky */}
+            <Link
+              to="/rozpocet"
+              className="group rounded-2xl bg-white dark:bg-[#161a23] p-4 text-slate-900 dark:text-white shadow-sm border border-slate-100/80 dark:border-zinc-800/40 hover:shadow-md transition"
+            >
+              <div className="flex items-center justify-between text-[12px] font-medium text-slate-700 dark:text-zinc-300">
+                <span className="truncate">Výdavky · {currentMonthName}</span>
+                <span className="flex w-6 h-6 items-center justify-center rounded-full bg-[#edf4ff] dark:bg-[#182a3e] text-[#196ee6] dark:text-[#38bdf8] shrink-0">
                   <BarChart2 className="w-3.5 h-3.5" />
                 </span>
               </div>
-              <div className="mt-2 flex items-baseline">
-                <span className="text-[26px] font-bold leading-none">
+
+              <div className="mt-1.5 flex items-baseline">
+                <span className="text-[24px] font-bold leading-none">
                   {Math.floor(expense).toLocaleString("sk-SK")},
                 </span>
-                <span className="text-[16px] font-bold leading-none ml-0.5">
+                <span className="text-[15px] font-bold leading-none ml-0.5">
                   {Math.round((expense - Math.floor(expense)) * 100).toString().padStart(2, "0")}&nbsp;€
                 </span>
               </div>
-              <Link to="/rozpocet" className="mt-2 block text-[12px] text-slate-500 dark:text-zinc-400 hover:underline">
-                {s.budgets?.length ? "Nastavený rozpočet" : "Neurčený rozpočet"}
-              </Link>
-            </div>
 
-            <div className="rounded-2xl bg-white dark:bg-[#161a23] p-4 text-slate-900 dark:text-white shadow-sm border border-slate-100/80 dark:border-zinc-800/40">
-              <div className="flex items-center justify-between text-[13px] font-medium text-slate-700 dark:text-zinc-300">
-                <span>Príjmy za {currentMonthName}</span>
+              {/* Segmentový mini graf kategórií */}
+              {expense > 0 && (
+                <div className="mt-3">
+                  <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden flex gap-0.5">
+                    {Object.entries(categoryTotals).map(([cat, amount]) => {
+                      const pct = Math.max(4, (amount / expense) * 100);
+                      const bg = CATEGORY_COLORS[cat] || "#94a3b8";
+                      return (
+                        <div
+                          key={cat}
+                          style={{ width: `${pct}%`, backgroundColor: bg }}
+                          className="h-full first:rounded-l-full last:rounded-r-full transition-all"
+                          title={`${cat}: ${amount.toFixed(2)} €`}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  {/* Legenda TOP kategórií */}
+                  <div className="mt-2 space-y-1">
+                    {sortedCategories.map(([cat, amount]) => {
+                      const bg = CATEGORY_COLORS[cat] || "#94a3b8";
+                      const pct = Math.round((amount / expense) * 100);
+                      return (
+                        <div key={cat} className="flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400">
+                          <span className="flex items-center gap-1 truncate">
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: bg }} />
+                            <span className="truncate">{cat}</span>
+                          </span>
+                          <span className="font-semibold text-slate-700 dark:text-zinc-300 ml-1">{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-2.5 flex items-center justify-between text-[11px] text-[#196ee6] dark:text-[#60a5fa] font-medium pt-1 border-t border-slate-100 dark:border-zinc-800/80">
+                <span>Detail rozpočtu</span>
+                <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </div>
-              <div className="mt-2 flex items-baseline">
-                <span className="text-[26px] font-bold leading-none">
-                  {Math.floor(income).toLocaleString("sk-SK")},
-                </span>
-                <span className="text-[16px] font-bold leading-none ml-0.5">
-                  {Math.round((income - Math.floor(income)) * 100).toString().padStart(2, "0")}&nbsp;€
-                </span>
+            </Link>
+
+            {/* Karta Príjmy */}
+            <div className="rounded-2xl bg-white dark:bg-[#161a23] p-4 text-slate-900 dark:text-white shadow-sm border border-slate-100/80 dark:border-zinc-800/40 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between text-[12px] font-medium text-slate-700 dark:text-zinc-300">
+                  <span className="truncate">Príjmy · {currentMonthName}</span>
+                  <span className="flex w-6 h-6 items-center justify-center rounded-full bg-[#ecfdf5] dark:bg-[#064e3b]/30 text-[#10b981] shrink-0">
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+
+                <div className="mt-1.5 flex items-baseline">
+                  <span className="text-[24px] font-bold leading-none">
+                    {Math.floor(income).toLocaleString("sk-SK")},
+                  </span>
+                  <span className="text-[15px] font-bold leading-none ml-0.5">
+                    {Math.round((income - Math.floor(income)) * 100).toString().padStart(2, "0")}&nbsp;€
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-2 border-t border-slate-100 dark:border-zinc-800/80">
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-zinc-400">
+                  <TrendingUp className="w-3.5 h-3.5 text-[#10b981]" />
+                  <span>{currentMonthIncomeCount > 0 ? `${currentMonthIncomeCount} prijaté platby` : "Žiadne nové príjmy"}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Sekcia Vaše produkty */}
-        <div className="px-4 mt-4 space-y-3">
+        <div className="px-4 mt-5 space-y-3">
           <p className="text-[13px] font-medium text-slate-500 dark:text-zinc-400 px-1">
             Vaše produkty
           </p>
@@ -197,7 +301,7 @@ function GeorgePrehlad() {
                 </div>
               </div>
 
-              <div className="w-12 h-12 rounded-full bg-[#fdf2f8] dark:bg-[#2e1627] text-[#db2777] dark:text-[#f43f5e] flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-full bg-[#fdf2f8] dark:bg-[#2e1627] text-[#db2777] dark:text-[#f43f5e] flex items-center justify-center shrink-0">
                 <ShoppingBag className="w-6 h-6 stroke-[2]" />
               </div>
             </div>
