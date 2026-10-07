@@ -31,7 +31,7 @@ function GeorgePrehlad() {
   // Reálne dáta z databázy
   const currentBalance = balance(s);
   const { income, expense } = monthTotals(s);
-  const currentMonthName = (MONTHS[new Date().getUTCMonth()] ?? "október").toLowerCase();
+  const currentMonthName = (MONTHS[new Date().getMonth()] ?? "október").toLowerCase();
 
   const isNegative = currentBalance < 0;
   const absVal = Math.abs(currentBalance);
