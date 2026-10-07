@@ -98,8 +98,8 @@ function UcetDetail() {
     );
     sorted.forEach((txn) => {
       const d = new Date(txn.date);
-      const monthIdx = d.getUTCMonth();
-      const year = d.getUTCFullYear();
+      const monthIdx = d.getMonth();
+      const year = d.getFullYear();
       const key = `${year}-${String(monthIdx).padStart(2, "0")}`;
       if (!groups[key]) groups[key] = { label: `${MONTHS[monthIdx] || "Neznámy"} ${year}`, items: [] };
       groups[key].items.push(txn);
