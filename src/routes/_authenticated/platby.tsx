@@ -12,7 +12,14 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Copy,
-  X
+  X,
+  ShoppingCart,
+  Home,
+  Fuel,
+  Film,
+  HeartPulse,
+  PiggyBank,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/bank/AppShell";
@@ -33,6 +40,7 @@ export const Route = createFileRoute("/_authenticated/platby")({
   component: UcetDetail,
 });
 
+// Logo Slovenskej sporiteľne pre bankové poplatky
 function SlspLogoIcon() {
   return (
     <div className="w-10 h-10 rounded-full bg-[#196ee6] flex items-center justify-center text-white shrink-0 shadow-sm">
@@ -42,6 +50,80 @@ function SlspLogoIcon() {
         <rect x="7" y="14" width="10" height="2.5" rx="1.2" />
         <rect x="7" y="18" width="10" height="2.5" rx="1.2" />
       </svg>
+    </div>
+  );
+}
+
+// George farebná ikona pre každú kategóriu
+function CategoryIcon({ category, type, counterparty }: { category?: string; type: "in" | "out"; counterparty: string }) {
+  const isIn = type === "in";
+  const name = (counterparty || "").toLowerCase();
+  const cat = category || "";
+
+  if (cat === "Poplatky" || name.includes("poplatok") || name.includes("vedenie")) {
+    return <SlspLogoIcon />;
+  }
+
+  if (isIn) {
+    return (
+      <div className="w-10 h-10 rounded-full bg-[#e8fbf0] dark:bg-[#064e3b]/40 text-[#16a34a] dark:text-[#4ade80] flex items-center justify-center shrink-0 shadow-sm">
+        <ArrowDownLeft className="w-5 h-5 stroke-[2.4]" />
+      </div>
+    );
+  }
+
+  if (cat === "Potraviny" || name.includes("billa") || name.includes("tesco") || name.includes("lidl") || name.includes("kaufland")) {
+    return (
+      <div className="w-10 h-10 rounded-full bg-[#fff7ed] dark:bg-[#431407]/40 text-[#ea580c] dark:text-[#fb923c] flex items-center justify-center shrink-0 shadow-sm">
+        <ShoppingCart className="w-5 h-5 stroke-[2.2]" />
+      </div>
+    );
+  }
+
+  if (cat === "Doprava" || name.includes("slovnaft") || name.includes("omv") || name.includes("shell") || name.includes("orlen")) {
+    return (
+      <div className="w-10 h-10 rounded-full bg-[#f0f9ff] dark:bg-[#082f49]/40 text-[#0284c7] dark:text-[#38bdf8] flex items-center justify-center shrink-0 shadow-sm">
+        <Fuel className="w-5 h-5 stroke-[2.2]" />
+      </div>
+    );
+  }
+
+  if (cat === "Bývanie" || name.includes("nájom") || name.includes("spp") || name.includes("elektr")) {
+    return (
+      <div className="w-10 h-10 rounded-full bg-[#faf5ff] dark:bg-[#3b0764]/40 text-[#9333ea] dark:text-[#c084fc] flex items-center justify-center shrink-0 shadow-sm">
+        <Home className="w-5 h-5 stroke-[2.2]" />
+      </div>
+    );
+  }
+
+  if (cat === "Zábava" || name.includes("netflix") || name.includes("spotify") || name.includes("kino")) {
+    return (
+      <div className="w-10 h-10 rounded-full bg-[#fdf2f8] dark:bg-[#500724]/40 text-[#db2777] dark:text-[#f472b6] flex items-center justify-center shrink-0 shadow-sm">
+        <Film className="w-5 h-5 stroke-[2.2]" />
+      </div>
+    );
+  }
+
+  if (cat === "Zdravie" || name.includes("lekár") || name.includes("dr.max") || name.includes("benu")) {
+    return (
+      <div className="w-10 h-10 rounded-full bg-[#ecfdf5] dark:bg-[#064e3b]/40 text-[#059669] dark:text-[#34d399] flex items-center justify-center shrink-0 shadow-sm">
+        <HeartPulse className="w-5 h-5 stroke-[2.2]" />
+      </div>
+    );
+  }
+
+  if (cat === "Sporenie" || name.includes("rezerv") || name.includes("sporen")) {
+    return (
+      <div className="w-10 h-10 rounded-full bg-[#ecfeff] dark:bg-[#083344]/40 text-[#0891b2] dark:text-[#22d3ee] flex items-center justify-center shrink-0 shadow-sm">
+        <PiggyBank className="w-5 h-5 stroke-[2.2]" />
+      </div>
+    );
+  }
+
+  // Východiskový odoslaný prevod
+  return (
+    <div className="w-10 h-10 rounded-full bg-[#eff6ff] dark:bg-[#172554]/40 text-[#2563eb] dark:text-[#60a5fa] flex items-center justify-center shrink-0 shadow-sm">
+      <ArrowUpRight className="w-5 h-5 stroke-[2.4]" />
     </div>
   );
 }
@@ -119,135 +201,140 @@ function UcetDetail() {
   const copyIban = () => {
     if (s.iban) {
       navigator.clipboard.writeText(s.iban);
-      toast.success("IBAN skopírovaný do schránky");
+      toast.success("IBAN bol skopírovaný do schránky");
     }
   };
 
   return (
     <AppShell hideBottomNav={true}>
-      <div className="min-h-screen bg-[#f2f4f8] dark:bg-[#0e1117] text-slate-900 dark:text-white pb-28 font-sans transition-colors">
+      <div className="min-h-screen bg-[#f2f4f8] dark:bg-[#0e1117] text-slate-900 dark:text-white pb-32 font-sans transition-colors duration-200">
         
-        {/* Fuchsiová hlavička s bielou šípkou späť */}
-        <div className="bg-[#be0055] px-4 pt-3 pb-16 text-white transition-colors">
-          <div className="flex items-center py-2">
-            <Link 
-              to="/" 
-              className="p-1 -ml-1 text-white hover:opacity-80 active:scale-95 transition"
-              aria-label="Späť na prehľad"
-            >
+        {/* Magenta hlavička George pre Detail účtu */}
+        <div className="bg-[#b3145a] dark:bg-transparent px-4 pt-4 pb-6 text-white transition-colors">
+          <div className="flex items-center justify-between">
+            <Link to="/" className="p-1 -ml-1 text-white hover:text-white/80 transition" aria-label="Späť na Prehľad">
               <ArrowLeft className="w-6 h-6 stroke-[2.2]" />
             </Link>
-          </div>
-        </div>
-
-        <div className="px-4 -mt-10 space-y-3">
-          {/* Karta účtu s reálnym zostatkom */}
-          <div className="rounded-2xl bg-white dark:bg-[#161a23] p-5 shadow-sm border border-slate-100 dark:border-zinc-800/40">
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className="text-[17px] font-semibold text-slate-900 dark:text-white">Účet</h1>
-                
-                <div className={`mt-1 flex items-baseline ${isNegative ? "text-[#e11d48] dark:text-[#ff5a70]" : "text-slate-900 dark:text-white"}`}>
-                  <span className="text-[32px] font-bold leading-none tracking-tight">
-                    {isNegative ? "-" : ""}{wholeEuros},
-                  </span>
-                  <span className="text-[18px] font-bold leading-none ml-0.5">
-                    {cents}&nbsp;€
-                  </span>
-                </div>
-
-                <p className="mt-1.5 text-[13px] text-slate-500 dark:text-zinc-400">
-                  {formattedOwnResources}
-                </p>
-              </div>
-
-              <InitialsAvatar name={s.owner} />
+            
+            <div className="flex items-center gap-3">
+              <Link to="/nastavenia" aria-label="Profil">
+                <InitialsAvatar name={s.owner} className="w-8 h-8 text-[12px] bg-white/20 text-white border-white/30" />
+              </Link>
             </div>
           </div>
 
-          {/* Funkčná lišta (4 záložky: Transakcie, Funkcie, Karty, Info) */}
-          <div className="flex items-center justify-between gap-1 pt-1 pb-1 text-[14px]">
+          <div className="mt-4 flex items-center justify-between">
+            <div>
+              <p className="text-[13px] font-medium text-white/85">
+                SPACE účet
+              </p>
+              
+              <div className="mt-1 flex items-baseline">
+                <span className="text-[36px] font-extrabold leading-none tracking-tight">
+                  {isNegative ? "-" : ""}{wholeEuros},
+                </span>
+                <span className="text-[20px] font-bold leading-none ml-0.5">
+                  {cents}&nbsp;€
+                </span>
+              </div>
+
+              <p className="mt-1.5 text-[12px] text-white/75 font-mono">
+                {s.iban || "SK83 0900 0000 0052 0892 1207"}
+              </p>
+            </div>
+          </div>
+
+          {/* Záložky detailu účtu */}
+          <div className="mt-6 flex border-b border-white/20 text-[14px] font-medium">
             <button
               type="button"
               onClick={() => setActiveTab("transakcie")}
-              className={`rounded-full px-4 py-2 font-semibold transition ${
-                activeTab === "transakcie"
-                  ? "bg-[#e8f1fd] dark:bg-[#182a40] text-[#196ee6] dark:text-[#60a5fa]"
-                  : "text-[#196ee6] dark:text-[#60a5fa] hover:opacity-80"
+              className={`pb-2.5 px-3 transition-colors relative ${
+                activeTab === "transakcie" 
+                  ? "text-white font-semibold" 
+                  : "text-white/70 hover:text-white"
               }`}
             >
               Transakcie
+              {activeTab === "transakcie" && (
+                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-white rounded-full" />
+              )}
             </button>
+
             <button
               type="button"
               onClick={() => setActiveTab("funkcie")}
-              className={`rounded-full px-4 py-2 font-medium transition ${
-                activeTab === "funkcie"
-                  ? "bg-[#e8f1fd] dark:bg-[#182a40] text-[#196ee6] dark:text-[#60a5fa]"
-                  : "text-[#196ee6] dark:text-[#60a5fa] hover:opacity-80"
+              className={`pb-2.5 px-3 transition-colors relative ${
+                activeTab === "funkcie" 
+                  ? "text-white font-semibold" 
+                  : "text-white/70 hover:text-white"
               }`}
             >
               Funkcie
+              {activeTab === "funkcie" && (
+                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-white rounded-full" />
+              )}
             </button>
+
             <button
               type="button"
               onClick={() => setActiveTab("karty")}
-              className={`rounded-full px-4 py-2 font-medium transition ${
-                activeTab === "karty"
-                  ? "bg-[#e8f1fd] dark:bg-[#182a40] text-[#196ee6] dark:text-[#60a5fa]"
-                  : "text-[#196ee6] dark:text-[#60a5fa] hover:opacity-80"
+              className={`pb-2.5 px-3 transition-colors relative ${
+                activeTab === "karty" 
+                  ? "text-white font-semibold" 
+                  : "text-white/70 hover:text-white"
               }`}
             >
               Karty
+              {activeTab === "karty" && (
+                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-white rounded-full" />
+              )}
             </button>
+
             <button
               type="button"
               onClick={() => setActiveTab("info")}
-              className={`rounded-full px-4 py-2 font-medium transition ${
-                activeTab === "info"
-                  ? "bg-[#e8f1fd] dark:bg-[#182a40] text-[#196ee6] dark:text-[#60a5fa]"
-                  : "text-[#196ee6] dark:text-[#60a5fa] hover:opacity-80"
+              className={`pb-2.5 px-3 transition-colors relative ${
+                activeTab === "info" 
+                  ? "text-white font-semibold" 
+                  : "text-white/70 hover:text-white"
               }`}
             >
               Info
+              {activeTab === "info" && (
+                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-white rounded-full" />
+              )}
             </button>
           </div>
+        </div>
 
-          {/* Obsah záložky Transakcie */}
+        {/* Obsah záložiek */}
+        <div className="px-4 mt-4">
           {activeTab === "transakcie" && (
-            <div className="space-y-4">
-              {/* Karta: Platobné príkazy a rezervácie */}
-              <div className="flex items-center gap-3.5 rounded-2xl bg-white dark:bg-[#161a23] p-4 shadow-sm border border-slate-100 dark:border-zinc-800/40">
-                <div className="text-[#f43f5e] shrink-0">
-                  <FileEdit className="w-6 h-6 stroke-[2]" />
-                </div>
-                <div>
-                  <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-                    Platobné príkazy a rezervácie
-                  </h3>
-                  <p className="text-[12px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                    0 nezrealizovaných platieb & 0 rezervácií
-                  </p>
-                </div>
-              </div>
-
-              {/* Hľadanie a filtre */}
-              <div className="space-y-3">
+            <div className="space-y-3">
+              {/* Vyhľadávanie a filtre */}
+              <div className="space-y-2">
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
+                    type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Hľadať partnera, sumu, VS, poznámku…"
-                    aria-label="Hľadať v transakciách"
-                    className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-10 text-[15px] text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#196ee6] dark:border-zinc-700 dark:bg-[#161a23] dark:text-white"
+                    placeholder="Hľadať partnera, VS, sumu..."
+                    className="w-full rounded-xl bg-white dark:bg-[#161a23] pl-10 pr-9 py-2.5 text-[14px] border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#196ee6] dark:focus:border-[#38bdf8] text-slate-900 dark:text-white"
                   />
                   {query && (
-                    <button type="button" onClick={() => setQuery("")} aria-label="Vymazať hľadanie" className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400">
-                      <X className="h-4 w-4" />
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
+                      aria-label="Vymazať vyhľadávanie"
+                    >
+                      <X className="w-4 h-4" />
                     </button>
                   )}
                 </div>
+
                 <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
                   {([["all", "Všetky"], ["out", "Výdavky"], ["in", "Príjmy"]] as const).map(([v, l]) => (
                     <button key={v} type="button" onClick={() => setDirection(v)} className={chip(direction === v)}>{l}</button>
@@ -256,19 +343,21 @@ function UcetDetail() {
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                     aria-label="Zoradiť"
-                    className={chip(sortBy !== "newest") + " outline-none"}
+                    className={chip(sortBy !== "newest") + " outline-none cursor-pointer"}
                   >
                     <option value="newest">Najnovšie</option>
                     <option value="oldest">Najstaršie</option>
                     <option value="amount">Najvyššia suma</option>
                   </select>
                 </div>
+
                 <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
                   <button type="button" onClick={() => setCategory("all")} className={chip(category === "all")}>Všetky kategórie</button>
                   {categories.map((c) => (
                     <button key={c} type="button" onClick={() => setCategory(c)} className={chip(category === c)}>{c}</button>
                   ))}
                 </div>
+
                 {filtersActive && (
                   <div className="flex items-center justify-between px-1 text-[13px] text-slate-500 dark:text-zinc-400">
                     <span>
@@ -281,7 +370,7 @@ function UcetDetail() {
                 )}
               </div>
 
-              {/* Reálne transakcie z databázy zoskupené po mesiacoch */}
+              {/* Zoznam transakcií s farebnými ikonami a odznakmi */}
               {groupedTransactions.length === 0 ? (
                 <div className="rounded-2xl bg-white dark:bg-[#161a23] p-8 text-center text-slate-400">
                   {filtersActive ? (
@@ -296,58 +385,45 @@ function UcetDetail() {
               ) : (
                 groupedTransactions.map((group) => (
                   <div key={group.label} className="space-y-2 pt-1">
-                    <h2 className="text-[14px] font-semibold text-slate-800 dark:text-zinc-200 px-1">
+                    <h2 className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 px-1">
                       {group.label}
                     </h2>
                     <div className="space-y-2">
                       {group.items.map((t) => {
                         const isIn = t.type === "in";
-                        const isSlspFee = t.category === "Poplatky" || t.counterparty?.toLowerCase().includes("poplatok");
+                        // Odznak okamžitej platby pri prevodoch
+                        const isInstant = t.category === "Prevod" || t.category === "Mzda" || !t.category;
 
                         return (
                           <div
                             key={t.id}
                             onClick={() => navigate({ to: "/transakcia/$id", params: { id: t.id } })}
-                            className="cursor-pointer flex items-center justify-between rounded-2xl bg-white dark:bg-[#161a23] p-4 shadow-sm border border-slate-100 dark:border-zinc-800/40 hover:bg-slate-50 dark:hover:bg-[#1c212c] transition"
+                            className="cursor-pointer flex items-center justify-between rounded-2xl bg-white dark:bg-[#161a23] p-4 shadow-sm border border-slate-100 dark:border-zinc-800/40 hover:bg-slate-50 dark:hover:bg-[#1c212c] transition active:scale-[0.99]"
                           >
-                            <div className="flex items-center gap-3">
-                              {isSlspFee ? (
-                                <SlspLogoIcon />
-                              ) : (
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                                  isIn 
-                                    ? "bg-[#e8fbf0] dark:bg-[#102b1f] text-[#16a34a] dark:text-[#4ade80]" 
-                                    : "bg-[#edf4ff] dark:bg-[#182a3e] text-[#196ee6] dark:text-[#38bdf8]"
-                                }`}>
-                                  {isIn ? (
-                                    <ArrowDownLeft className="w-5 h-5 stroke-[2.2]" />
-                                  ) : (
-                                    <ArrowUpRight className="w-5 h-5 stroke-[2.2]" />
-                                  )}
-                                </div>
-                              )}
+                            <div className="flex items-center gap-3 min-w-0 flex-1 mr-3">
+                              <CategoryIcon category={t.category} type={t.type} counterparty={t.counterparty} />
                               
-                              <div>
-                                <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[15px] font-semibold text-slate-900 dark:text-white truncate">
                                   {t.counterparty}
                                 </p>
-                                <p className="text-[12px] text-slate-500 dark:text-zinc-400">
-                                  {formatDate(t.date)}
-                                </p>
-                                {t.vs && (
-                                  <p className="text-[12px] text-slate-500 dark:text-zinc-400">
-                                    KS / VS: {t.vs}
-                                  </p>
-                                )}
+                                <div className="flex items-center gap-2 mt-0.5 text-[12px] text-slate-500 dark:text-zinc-400">
+                                  <span>{formatDate(t.date)}</span>
+                                  {isInstant && (
+                                    <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-[#196ee6] dark:text-[#38bdf8] bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.2 rounded-full">
+                                      <Zap className="w-2.5 h-2.5 fill-current" /> Instant
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="mt-1">
-                                  <span className="inline-block rounded-full border border-slate-200 dark:border-zinc-700 px-2 py-0.5 text-[11px] text-slate-600 dark:text-zinc-300">
-                                    {t.category}
+                                  <span className="inline-block rounded-full border border-slate-200 dark:border-zinc-700/80 px-2 py-0.5 text-[11px] text-slate-600 dark:text-zinc-300">
+                                    {t.category || "Prevod"}
                                   </span>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="text-right">
+                            <div className="text-right shrink-0">
                               <span className={`text-[16px] font-bold ${
                                 isIn 
                                   ? "text-[#16a34a] dark:text-[#4ade80]" 
@@ -429,25 +505,28 @@ function UcetDetail() {
           )}
         </div>
 
-        {/* Špeciálna plávajúca spodná lišta */}
+        {/* Plávajúca spodná akčná lišta s Novou platbou */}
         <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[430px] border-t border-slate-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-[#0f1218]/95 px-4 py-3 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
-                className="flex w-11 h-11 items-center justify-center rounded-full bg-[#edf4ff] dark:bg-[#16273c] text-[#196ee6] dark:text-[#38bdf8] hover:opacity-85 transition"
+                onClick={() => {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="flex w-11 h-11 items-center justify-center rounded-full bg-[#edf4ff] dark:bg-[#16273c] text-[#196ee6] dark:text-[#38bdf8] hover:opacity-85 transition active:scale-95"
                 aria-label="Vyhľadať v transakciách"
               >
                 <Search className="w-5 h-5 stroke-[2.2]" />
               </button>
 
-              <button
-                type="button"
-                className="flex w-11 h-11 items-center justify-center rounded-full bg-[#edf4ff] dark:bg-[#16273c] text-[#196ee6] dark:text-[#38bdf8] hover:opacity-85 transition"
+              <Link
+                to="/rozpocet"
+                className="flex w-11 h-11 items-center justify-center rounded-full bg-[#edf4ff] dark:bg-[#16273c] text-[#196ee6] dark:text-[#38bdf8] hover:opacity-85 transition active:scale-95"
                 aria-label="Prehľad výdavkov a štatistika"
               >
                 <BarChart2 className="w-5 h-5 stroke-[2.2]" />
-              </button>
+              </Link>
             </div>
 
             <Link
