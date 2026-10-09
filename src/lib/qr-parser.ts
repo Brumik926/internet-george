@@ -29,12 +29,12 @@ export function parsePaymentQr(raw: string): ParsedPaymentData | null {
   // 2. Európsky SEPA / EPC QR kód (začína BCD)
   if (text.startsWith("BCD")) {
     const lines = text.split(/\r?\n/);
-    if (lines.length >= 7) {
-      const recipientName = lines[4]?.trim();
-      const iban = lines[5]?.trim();
-      const amountRaw = lines[6]?.replace(/[^\d.,]/g, "").replace(",", ".");
-      const vs = lines[8]?.trim();
-      const note = lines[10]?.trim();
+    if (lines.length >= 8) {
+      const recipientName = lines[5]?.trim();
+      const iban = lines[6]?.replace(/\s+/g, "").toUpperCase()?.trim();
+      const amountRaw = lines[7]?.replace(/^EUR/i, "").replace(/[^\d.,]/g, "").replace(",", ".");
+      const vs = lines[9]?.match(/\d{1,10}/)?.[0];
+      const note = (lines[10] || lines[11])?.trim();
 
       return {
         recipientName: recipientName || undefined,
@@ -60,4 +60,10 @@ export function parsePaymentQr(raw: string): ParsedPaymentData | null {
   }
 
   return null;
+}
+
+/** PAY by square: base32hex reťazec (0-9, A-V), typicky začína "0004". */
+export function isPayBySquare(raw: string): boolean {
+  const t = raw.trim();
+  return t.length > 20 && /^[0-9A-V]+$/.test(t);
 }
