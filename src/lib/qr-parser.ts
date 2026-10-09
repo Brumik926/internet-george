@@ -32,7 +32,7 @@ export function parsePaymentQr(raw: string): ParsedPaymentData | null {
     if (lines.length >= 7) {
       const recipientName = lines[4]?.trim();
       const iban = lines[5]?.trim();
-      const amountRaw = lines[6]?.replace(/[^\d.,]/g, "").replace(",", ".");
+      const amountRaw = lines[6]?.replace(/^EUR/i, "").replace(/[^\d.,]/g, "").replace(",", ".");
       const vs = lines[8]?.trim();
       const note = lines[10]?.trim();
 
@@ -60,4 +60,10 @@ export function parsePaymentQr(raw: string): ParsedPaymentData | null {
   }
 
   return null;
+}
+
+/** PAY by square: base32hex reťazec (0-9, A-V), typicky začína "0004". */
+export function isPayBySquare(raw: string): boolean {
+  const t = raw.trim();
+  return t.length > 20 && /^[0-9A-V]+$/.test(t);
 }

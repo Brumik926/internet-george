@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, Upload, X, AlertCircle } from "lucide-react";
-import { parsePaymentQr, type ParsedPaymentData } from "@/lib/qr-parser";
+import jsQR from "jsqr";
+import { parsePaymentQr, isPayBySquare, type ParsedPaymentData } from "@/lib/qr-parser";
 import { toast } from "sonner";
 
 interface Props {
@@ -9,126 +10,120 @@ interface Props {
   onScanSuccess: (data: ParsedPaymentData) => void;
 }
 
+function decodeFromCanvas(source: CanvasImageSource, w: number, h: number, canvas: HTMLCanvasElement): string | null {
+  if (!w || !h) return null;
+  // zmenši veľké obrázky kvôli rýchlosti
+  const scale = Math.min(1, 1024 / Math.max(w, h));
+  canvas.width = Math.round(w * scale);
+  canvas.height = Math.round(h * scale);
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  return jsQR(img.data, img.width, img.height, { inversionAttempts: "attemptBoth" })?.data ?? null;
+}
+
 export function QrScannerModal({ open, onClose, onScanSuccess }: Props) {
   const [mode, setMode] = useState<"camera" | "file">("camera");
-  const [errorMsg, setErrorMsg] = useState<string>("");
+  const [errorMsg, setErrorMsg] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastWarnRef = useRef("");
 
-  // Spustenie kamery
+  function stopCamera() {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }
+
+  function handleRaw(raw: string): boolean {
+    const parsed = parsePaymentQr(raw);
+    if (parsed && (parsed.iban || parsed.amount)) {
+      stopCamera();
+      navigator.vibrate?.(50);
+      toast.success("Údaje z QR kódu boli vložené do platby");
+      onScanSuccess(parsed);
+      onClose();
+      return true;
+    }
+    const warn = isPayBySquare(raw)
+      ? "Tento QR kód je vo formáte PAY by square, ktorý zatiaľ nevieme prečítať. Zadajte údaje ručne."
+      : "QR kód neobsahuje platobné údaje (IBAN alebo sumu).";
+    if (lastWarnRef.current !== warn) {
+      lastWarnRef.current = warn;
+      setErrorMsg(warn);
+    }
+    return false;
+  }
+
   useEffect(() => {
     if (!open || mode !== "camera") {
       stopCamera();
       return;
     }
-
     let active = true;
+    lastWarnRef.current = "";
+    setErrorMsg("");
 
-    async function initCamera() {
-      setErrorMsg("");
+    async function init() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: "environment" } },
+          audio: false,
         });
-        if (!active) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
+        if (!active) return stream.getTracks().forEach((t) => t.stop());
         streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          startDetection();
-        }
+        const video = videoRef.current;
+        if (!video) return;
+        video.srcObject = stream;
+        video.setAttribute("playsinline", "true");
+        await video.play();
+
+        let last = 0;
+        const tick = (t: number) => {
+          if (!active || !streamRef.current) return;
+          if (t - last > 200 && video.readyState >= 2 && canvasRef.current) {
+            last = t;
+            const raw = decodeFromCanvas(video, video.videoWidth, video.videoHeight, canvasRef.current);
+            if (raw && handleRaw(raw)) return;
+          }
+          rafRef.current = requestAnimationFrame(tick);
+        };
+        rafRef.current = requestAnimationFrame(tick);
       } catch (err) {
         console.error(err);
         setErrorMsg("Kamera nie je dostupná alebo nebol udelený prístup. Skúste nahrať fotku.");
       }
     }
-
-    void initCamera();
-
+    void init();
     return () => {
       active = false;
       stopCamera();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode]);
 
-  function stopCamera() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-  }
-
-  // Detekcia QR kódu z videa
-  async function startDetection() {
-    // natívne BarcodeDetector API v moderných prehliadačoch
-    if (typeof window !== "undefined" && "BarcodeDetector" in window) {
-      try {
-        const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
-
-        const interval = setInterval(async () => {
-          if (!videoRef.current || !streamRef.current) {
-            clearInterval(interval);
-            return;
-          }
-          try {
-            const barcodes = await detector.detect(videoRef.current);
-            if (barcodes.length > 0) {
-              const rawValue = barcodes[0].rawValue;
-              const parsed = parsePaymentQr(rawValue);
-              if (parsed && (parsed.iban || parsed.amount)) {
-                clearInterval(interval);
-                stopCamera();
-                navigator.vibrate?.(50);
-                toast.success("Údaje z QR kódu boli načítané");
-                onScanSuccess(parsed);
-                onClose();
-              }
-            }
-          } catch {
-            // snímka sa nepodarila dekódovať, pokračujeme v ďalšom cykle
-          }
-        }, 300);
-      } catch {
-        setErrorMsg("Váš prehliadač nepodporuje priame čítanie z kamery, nahrajte súbor.");
-      }
-    } else {
-      setErrorMsg("Kamera v tomto prehliadači nepodporuje priamy skener QR kódov. Použite nahranie obrázka.");
-    }
-  }
-
-  // Spracovanie nahraného obrázka
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-
+    e.target.value = "";
+    if (!file || !canvasRef.current) return;
     setErrorMsg("");
-    if (typeof window !== "undefined" && "BarcodeDetector" in window) {
-      try {
-        const img = new Image();
-        img.src = URL.createObjectURL(file);
-        await img.decode();
-
-        const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
-        const barcodes = await detector.detect(img);
-
-        if (barcodes.length > 0) {
-          const parsed = parsePaymentQr(barcodes[0].rawValue);
-          if (parsed && (parsed.iban || parsed.amount)) {
-            toast.success("Faktúra úspešne spracovaná");
-            onScanSuccess(parsed);
-            onClose();
-            return;
-          }
-        }
-        setErrorMsg("V obrázku sa nepodarilo nájsť platný QR kód.");
-      } catch (err) {
-        setErrorMsg("Chyba pri spracovaní obrázka.");
-      }
-    } else {
-      setErrorMsg("Čítanie zo súboru nie je podporované týmto prehliadačom.");
+    lastWarnRef.current = "";
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      const raw = decodeFromCanvas(img, img.naturalWidth, img.naturalHeight, canvasRef.current);
+      if (!raw) setErrorMsg("Na obrázku sa nenašiel QR kód. Skúste ostrejšiu fotku.");
+      else handleRaw(raw);
+    } catch {
+      setErrorMsg("Obrázok sa nepodarilo načítať.");
+    } finally {
+      URL.revokeObjectURL(url);
     }
   }
 
@@ -140,6 +135,8 @@ export function QrScannerModal({ open, onClose, onScanSuccess }: Props) {
         <div className="flex items-center justify-between pb-3">
           <h3 className="font-bold text-foreground">Skenovať faktúru / QR</h3>
           <button
+            type="button"
+            aria-label="Zavrieť"
             onClick={() => {
               stopCamera();
               onClose();
@@ -150,43 +147,30 @@ export function QrScannerModal({ open, onClose, onScanSuccess }: Props) {
           </button>
         </div>
 
-        {/* Prepínač režimu */}
         <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-muted/60 p-1">
-          <button
-            type="button"
-            onClick={() => setMode("camera")}
-            className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
-              mode === "camera" ? "bg-surface text-foreground shadow-sm" : "text-muted-foreground"
-            }`}
-          >
-            <Camera className="size-4" /> Kamera
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              stopCamera();
-              setMode("file");
-            }}
-            className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
-              mode === "file" ? "bg-surface text-foreground shadow-sm" : "text-muted-foreground"
-            }`}
-          >
-            <Upload className="size-4" /> Nahrať fotku
-          </button>
+          {(["camera", "file"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+                mode === m ? "bg-surface text-foreground shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              {m === "camera" ? <Camera className="size-4" /> : <Upload className="size-4" />}
+              {m === "camera" ? "Kamera" : "Nahrať fotku"}
+            </button>
+          ))}
         </div>
 
-        {/* Zobrazenie kamery */}
-        {mode === "camera" && (
+        {mode === "camera" ? (
           <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-black">
-            <video ref={videoRef} playsInline muted className="size-full object-cover" />
+            <video ref={videoRef} playsInline muted autoPlay className="size-full object-cover" />
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div className="size-48 rounded-2xl border-2 border-dashed border-primary/90" />
             </div>
           </div>
-        )}
-
-        {/* Nahrávanie súboru */}
-        {mode === "file" && (
+        ) : (
           <label className="flex aspect-square w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/30 p-4 text-center hover:bg-muted/50">
             <Upload className="mb-2 size-8 text-primary" />
             <span className="text-sm font-semibold">Vyberte fotografiu faktúry</span>
@@ -194,10 +178,11 @@ export function QrScannerModal({ open, onClose, onScanSuccess }: Props) {
             <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
           </label>
         )}
+        <canvas ref={canvasRef} className="hidden" />
 
         {errorMsg && (
           <div className="mt-3 flex items-start gap-2 rounded-xl bg-destructive/10 p-2.5 text-xs text-destructive">
-            <AlertCircle className="size-4 shrink-0 mt-0.5" />
+            <AlertCircle className="mt-0.5 size-4 shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
