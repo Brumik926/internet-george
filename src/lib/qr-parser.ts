@@ -6,8 +6,34 @@ export interface ParsedPaymentData {
   note?: string | undefined;
 }
 
+import { decode as decodeBySquare } from "bysquare/pay";
+
+function parseBySquare(text: string): ParsedPaymentData | null {
+  try {
+    const model = decodeBySquare(text);
+    const p = model.payments?.[0];
+    if (!p) return null;
+    return {
+      iban: p.bankAccounts?.[0]?.iban?.replace(/\s+/g, "").toUpperCase() || undefined,
+      amount: p.amount != null ? String(p.amount) : undefined,
+      recipientName: p.beneficiary?.name || undefined,
+      vs: p.variableSymbol || undefined,
+      note: p.paymentNote || undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function parsePaymentQr(raw: string): ParsedPaymentData | null {
   const text = raw.trim();
+
+  // 0. PAY by square (slovenský štandard)
+  if (isPayBySquare(text)) {
+    const r = parseBySquare(text);
+    if (r) return r;
+  }
+
 
   // 1. Payme URL formát: https://payme.sk?... alebo payme://...
   if (text.includes("payme.sk") || text.startsWith("payme:")) {
