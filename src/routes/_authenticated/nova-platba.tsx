@@ -1,14 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Fingerprint,
   ShieldCheck,
   AlertCircle,
   ArrowRight,
   QrCode,
-  Camera,
-  Upload,
-  X,
+  CheckCircle2,
+  Building2,
 } from "lucide-react";
 import { enableBiometric, isBiometricEnabled, isBiometricSupported, verifyBiometric } from "@/lib/biometric";
 import { AppShell, BrandHeader } from "@/components/bank/AppShell";
@@ -21,6 +20,7 @@ import {
   useBank,
 } from "@/lib/bank-store";
 import { QrScannerModal } from "@/components/bank/QrScannerModal";
+import { formatIban, detectBank, validateIban, cleanIban } from "@/lib/iban";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/nova-platba")({
@@ -28,17 +28,17 @@ export const Route = createFileRoute("/_authenticated/nova-platba")({
     meta: [
       { title: "Nová platba | George" },
       { property: "og:title", content: "Nová platba | George" },
-      { property: "og:description", content: "Zadajte prevod so skenovaním QR kódu a biometrickým potvrdením." },
+      { property: "og:description", content: "Zadajte prevod s inteligentným IBAN-om, skenovaním QR kódu a biometrickým potvrdením." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "description", content: "Zadajte prevod so skenovaním a biometrickým potvrdením v George." },
+      { name: "description", content: "Zadajte prevod s inteligentným IBAN-om a biometriou v George." },
     ],
   }),
   component: NovaPlatba,
 });
 
 const field =
-  "w-full rounded-2xl border border-border bg-surface px-4 py-3 text-[15px] outline-none placeholder:text-muted-foreground focus:border-primary";
+  "w-full rounded-2xl border border-border bg-surface px-4 py-3 text-[15px] outline-none placeholder:text-muted-foreground focus:border-primary transition-colors";
 
 function NovaPlatba() {
   const s = useBank();
@@ -62,6 +62,13 @@ function NovaPlatba() {
   }, []);
 
   const value = Number(amount.replace(",", "."));
+  const detectedBank = detectBank(iban);
+  const ibanValidation = validateIban(iban);
+
+  // Spracovanie zmeny IBAN-u s automatickým formátovaním
+  function handleIbanChange(val: string) {
+    setIban(formatIban(val));
+  }
 
   // 1. Validácia formulára pred autorizáciou
   function handleInitiatePayment(e: React.FormEvent) {
@@ -70,6 +77,14 @@ function NovaPlatba() {
 
     if (!name.trim()) return setError("Zadajte meno príjemcu.");
     if (!iban.trim()) return setError("Zadajte IBAN príjemcu.");
+
+    if (!ibanValidation.valid && ibanValidation.complete) {
+      return setError(ibanValidation.error || "Zadaný IBAN je neplatný.");
+    }
+    if (!ibanValidation.valid && !ibanValidation.complete) {
+      return setError("IBAN nie je kompletný. Zadajte celé číslo účtu.");
+    }
+
     if (!Number.isFinite(value) || value <= 0) return setError("Zadajte platnú sumu.");
     if (value > balance(s)) return setError("Nedostatočný zostatok na účte.");
 
@@ -88,14 +103,13 @@ function NovaPlatba() {
       if (!isBiometricEnabled(user.id)) {
         await enableBiometric(user.id, user.email ?? "George");
       }
-      // Každá platba sa vždy potvrdí odtlačkom/tvárou
       const verified = await verifyBiometric(user.id);
       if (!verified) throw new Error("Overenie biometriou zlyhalo.");
 
       addTransaction({
         type: "out",
         counterparty: name.trim(),
-        iban: iban.trim().toUpperCase(),
+        iban: cleanIban(iban),
         amount: Math.round(value * 100) / 100,
         date: new Date().toISOString(),
         category,
@@ -151,7 +165,7 @@ function NovaPlatba() {
           current={{ name, iban }}
           onPick={(r) => {
             setName(r.name);
-            setIban(r.iban);
+            setIban(formatIban(r.iban));
             if (r.category) setCategory(r.category);
           }}
         />
@@ -169,15 +183,55 @@ function NovaPlatba() {
               />
             </label>
 
-            <label className="block">
-              <span className="text-[12px] text-muted-foreground">IBAN / číslo účtu</span>
-              <input
-                className={`${field} mt-1 font-mono tracking-wide uppercase`}
-                value={iban}
-                onChange={(e) => setIban(e.target.value)}
-                placeholder="SK00 0000 0000 0000 0000 0000"
-              />
-            </label>
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-muted-foreground">IBAN / číslo účtu</span>
+                {ibanValidation.valid && (
+                  <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="size-3.5" />
+                    Platný IBAN
+                  </span>
+                )}
+              </div>
+              <div className="relative mt-1">
+                <input
+                  className={`${field} font-mono tracking-wider uppercase pr-10 ${
+                    ibanValidation.valid
+                      ? "border-emerald-500/70 focus:border-emerald-500"
+                      : ibanValidation.complete && !ibanValidation.valid
+                      ? "border-destructive focus:border-destructive"
+                      : ""
+                  }`}
+                  value={iban}
+                  onChange={(e) => handleIbanChange(e.target.value)}
+                  placeholder="SK00 0000 0000 0000 0000 0000"
+                  maxLength={36}
+                />
+              </div>
+
+              {/* Bankový odznak a kontrola */}
+              {detectedBank && (
+                <div className="mt-2 flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="grid size-6 place-items-center rounded-lg text-[10px] font-bold text-white shadow-sm"
+                      style={{ backgroundColor: detectedBank.color }}
+                    >
+                      {detectedBank.short.slice(0, 3)}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">{detectedBank.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{detectedBank.country}</p>
+                    </div>
+                  </div>
+                  <span className="font-mono text-[11px] text-muted-foreground">SEPA</span>
+                </div>
+              )}
+
+              {ibanValidation.complete && !ibanValidation.valid && ibanValidation.error && (
+                <p className="mt-1.5 text-xs text-destructive">{ibanValidation.error}</p>
+              )}
+            </div>
 
             <label className="block">
               <span className="text-[12px] text-muted-foreground">Suma (€)</span>
@@ -257,7 +311,7 @@ function NovaPlatba() {
         onClose={() => setScannerOpen(false)}
         onScanSuccess={(data) => {
           if (data.recipientName) setName(data.recipientName);
-          if (data.iban) setIban(data.iban);
+          if (data.iban) setIban(formatIban(data.iban));
           if (data.amount) setAmount(data.amount.replace(".", ","));
           if (data.vs) setVs(data.vs);
           if (data.note) setNote(data.note);
@@ -287,10 +341,16 @@ function NovaPlatba() {
                 <span className="text-muted-foreground">Príjemca:</span>
                 <span className="font-semibold text-foreground">{name}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">IBAN:</span>
                 <span className="font-mono text-[11px] text-foreground">{iban}</span>
               </div>
+              {detectedBank && (
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">Banka:</span>
+                  <span className="font-semibold text-foreground">{detectedBank.name}</span>
+                </div>
+              )}
               {vs && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">VS:</span>
