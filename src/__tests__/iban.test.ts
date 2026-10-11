@@ -8,7 +8,7 @@ const VUB_IBAN = "SK53 0200 0000 0042 1190 2341";
 
 describe("formatIban", () => {
   it("pridá medzery po 4 znakoch a prevedie na veľké písmená", () => {
-    expect(formatIban("sk0709000000000191872645")).toBe(SLSP_IBAN);
+    expect(formatIban("sk1909000000000191872645")).toBe(SLSP_IBAN);
   });
 
   it("odstráni neplatné znaky", () => {
@@ -22,7 +22,7 @@ describe("formatIban", () => {
 
 describe("cleanIban", () => {
   it("odstráni medzery a prevedie na veľké písmená", () => {
-    expect(cleanIban("sk07 0900 0000 0001 9187 2645")).toBe("SK0709000000000191872645");
+    expect(cleanIban("sk19 0900 0000 0001 9187 2645")).toBe("SK1909000000000191872645");
   });
 });
 
@@ -66,7 +66,7 @@ describe("validateIban", () => {
   });
 
   it("neúplný IBAN nie je validný, ale ani nehlási chybu", () => {
-    const result = validateIban("SK07 0900");
+    const result = validateIban("SK19 0900");
     expect(result.valid).toBe(false);
     expect(result.complete).toBe(false);
     expect(result.error).toBeUndefined();
@@ -86,14 +86,14 @@ describe("validateIban", () => {
 
   it("preklep v číslici zlyhá na kontrolných čísliciach", () => {
     // rovnaká dĺžka ako platný IBAN, ale zmenená jedna číslica
-    const result = validateIban("SK08 0900 0000 0001 9187 2645");
+    const result = validateIban("SK20 0900 0000 0001 9187 2645");
     expect(result.valid).toBe(false);
     expect(result.complete).toBe(true);
     expect(result.error).toContain("kontrolné číslice");
   });
 
   it("príliš dlhý IBAN hlási chybu dĺžky", () => {
-    const result = validateIban("SK07 0900 0000 0001 9187 2645 1");
+    const result = validateIban("SK19 0900 0000 0001 9187 2645 1");
     expect(result.valid).toBe(false);
     expect(result.error).toContain("24 znakov");
   });
