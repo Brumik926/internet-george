@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import { formatIban, cleanIban, detectBank, validateIban } from "@/lib/iban";
 
 // Platné testovacie IBAN-y s korektnými kontrolnými číslicami (MOD-97)
-const SLSP_IBAN = "SK07 0900 0000 0001 9187 2645";
-const TATRA_IBAN = "SK93 1100 0000 0026 1170 0237";
-const VUB_IBAN = "SK41 0200 0000 0042 1190 2341";
+const SLSP_IBAN = "SK19 0900 0000 0001 9187 2645";
+const TATRA_IBAN = "SK08 1100 0000 0026 1170 0237";
+const VUB_IBAN = "SK53 0200 0000 0042 1190 2341";
 
 describe("formatIban", () => {
   it("pridá medzery po 4 znakoch a prevedie na veľké písmená", () => {
