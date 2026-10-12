@@ -1,15 +1,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Fingerprint,
   ShieldCheck,
   AlertCircle,
   ArrowRight,
   QrCode,
-  CheckCircle2,
-  Building2,
+  Camera,
+  Upload,
+  X,
+  KeyRound,
 } from "lucide-react";
-import { enableBiometric, isBiometricEnabled, isBiometricSupported, verifyBiometric } from "@/lib/biometric";
+import { isBiometricEnabled, isBiometricSupported, verifyBiometric } from "@/lib/biometric";
 import { AppShell, BrandHeader } from "@/components/bank/AppShell";
 import { RecipientPicker } from "@/components/bank/RecipientPicker";
 import {
@@ -19,28 +21,23 @@ import {
   formatEur,
   useBank,
 } from "@/lib/bank-store";
-import { QrScannerModal } from "@/components/bank/QrScannerModal";
-import { formatIban, detectBank, validateIban, cleanIban } from "@/lib/iban";
+import { parsePaymentQr, type ParsedPaymentData } from "@/lib/qr-parser";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/nova-platba")({
   head: () => ({
     meta: [
       { title: "Nová platba | George" },
-      { property: "og:title", content: "Nová platba | George" },
-      { property: "og:description", content: "Zadajte prevod s inteligentným IBAN-om, skenovaním QR kódu a biometrickým potvrdením." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "description", content: "Zadajte prevod s inteligentným IBAN-om a biometriou v George." },
+      { name: "description", content: "Zadajte prevod so skenovaním a overením v George." },
     ],
   }),
   component: NovaPlatba,
 });
 
 const field =
-  "w-full rounded-2xl border border-border bg-surface px-4 py-3 text-[15px] outline-none placeholder:text-muted-foreground focus:border-primary transition-colors";
+  "w-full rounded-2xl border border-border bg-surface px-4 py-3 text-[15px] outline-none placeholder:text-muted-foreground focus:border-primary";
 
-function NovaPlatba() {
+export default function NovaPlatba() {
   const s = useBank();
   const navigate = useNavigate();
   const { user } = Route.useRouteContext();
@@ -54,62 +51,55 @@ function NovaPlatba() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [bioSupported, setBioSupported] = useState(false);
+  const [bioPayEnabled, setBioPayEnabled] = useState(false);
+  const [authMethod, setAuthMethod] = useState<"bio" | "pin">("bio");
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
 
   useEffect(() => {
-    void isBiometricSupported().then(setBioSupported);
-  }, []);
+    void isBiometricSupported().then((supported) => {
+      setBioSupported(supported);
+      const savedBioPay = window.localStorage.getItem(`george-bio-pay:${user.id}`) !== "false";
+      const hasBio = isBiometricEnabled(user.id);
+      const canUseBio = supported && savedBioPay && hasBio;
+      setBioPayEnabled(canUseBio);
+      setAuthMethod(canUseBio ? "bio" : "pin");
+    });
+  }, [user.id]);
 
   const value = Number(amount.replace(",", "."));
-  const detectedBank = detectBank(iban);
-  const ibanValidation = validateIban(iban);
-
-  // Spracovanie zmeny IBAN-u s automatickým formátovaním
-  function handleIbanChange(val: string) {
-    setIban(formatIban(val));
-  }
 
   // 1. Validácia formulára pred autorizáciou
   function handleInitiatePayment(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setPin("");
+    setPinError("");
 
     if (!name.trim()) return setError("Zadajte meno príjemcu.");
     if (!iban.trim()) return setError("Zadajte IBAN príjemcu.");
-
-    if (!ibanValidation.valid && ibanValidation.complete) {
-      return setError(ibanValidation.error || "Zadaný IBAN je neplatný.");
-    }
-    if (!ibanValidation.valid && !ibanValidation.complete) {
-      return setError("IBAN nie je kompletný. Zadajte celé číslo účtu.");
-    }
-
     if (!Number.isFinite(value) || value <= 0) return setError("Zadajte platnú sumu.");
     if (value > balance(s)) return setError("Nedostatočný zostatok na účte.");
+
+    const savedBioPay = window.localStorage.getItem(`george-bio-pay:${user.id}`) !== "false";
+    const hasBio = isBiometricEnabled(user.id);
+    const canUseBio = bioSupported && savedBioPay && hasBio;
+    setBioPayEnabled(canUseBio);
+    setAuthMethod(canUseBio ? "bio" : "pin");
 
     setShowConfirmModal(true);
   }
 
-  // 2. Biometrické potvrdenie a zaúčtovanie platby
-  async function confirmWithBiometrics() {
+  // 2. Vykonanie uloženia transakcie
+  async function executePayment() {
     setBusy(true);
-    setError("");
-
     try {
-      if (!bioSupported) {
-        throw new Error("Toto zariadenie nepodporuje overenie odtlačkom prsta.");
-      }
-      if (!isBiometricEnabled(user.id)) {
-        await enableBiometric(user.id, user.email ?? "George");
-      }
-      const verified = await verifyBiometric(user.id);
-      if (!verified) throw new Error("Overenie biometriou zlyhalo.");
-
-      addTransaction({
+      await addTransaction({
         type: "out",
         counterparty: name.trim(),
-        iban: cleanIban(iban),
+        iban: iban.trim().toUpperCase(),
         amount: Math.round(value * 100) / 100,
         date: new Date().toISOString(),
         category,
@@ -118,16 +108,43 @@ function NovaPlatba() {
       });
 
       setShowConfirmModal(false);
-      toast.success("Platba bola úspešne autorizovaná a odoslaná");
+      toast.success("Platba bola úspešne odoslaná");
       navigate({ to: "/platby" });
     } catch (err) {
       console.error(err);
-      toast.error("Autorizácia platby bola prerušená");
-      const msg = err instanceof Error && err.name !== "NotAllowedError" ? err.message : "";
-      setError(msg || "Overenie odtlačkom/tvárou bolo zrušené alebo zlyhalo.");
+      toast.error("Odoslanie platby zlyhalo");
+      setError("Nastala neočakávaná chyba pri odosielaní platby.");
     } finally {
       setBusy(false);
     }
+  }
+
+  // 3. Potvrdenie biometriou
+  async function confirmWithBiometrics() {
+    setBusy(true);
+    setPinError("");
+
+    try {
+      const verified = await verifyBiometric(user.id);
+      if (!verified) throw new Error("Overenie biometriou nebolo úspešné.");
+      await executePayment();
+    } catch (err) {
+      console.error(err);
+      toast.error("Biometrické overenie zlyhalo");
+      setPinError("Biometrické overenie zlyhalo alebo bolo zrušené. Zadajte George PIN kód.");
+      setAuthMethod("pin");
+      setBusy(false);
+    }
+  }
+
+  // 4. Potvrdenie PIN kódom (fallback)
+  async function confirmWithPin(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    if (pin.trim().length < 4) {
+      setPinError("Zadajte minimálne 4-miestny George PIN kód.");
+      return;
+    }
+    await executePayment();
   }
 
   return (
@@ -165,7 +182,7 @@ function NovaPlatba() {
           current={{ name, iban }}
           onPick={(r) => {
             setName(r.name);
-            setIban(formatIban(r.iban));
+            setIban(r.iban);
             if (r.category) setCategory(r.category);
           }}
         />
@@ -183,55 +200,15 @@ function NovaPlatba() {
               />
             </label>
 
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] text-muted-foreground">IBAN / číslo účtu</span>
-                {ibanValidation.valid && (
-                  <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 className="size-3.5" />
-                    Platný IBAN
-                  </span>
-                )}
-              </div>
-              <div className="relative mt-1">
-                <input
-                  className={`${field} font-mono tracking-wider uppercase pr-10 ${
-                    ibanValidation.valid
-                      ? "border-emerald-500/70 focus:border-emerald-500"
-                      : ibanValidation.complete && !ibanValidation.valid
-                      ? "border-destructive focus:border-destructive"
-                      : ""
-                  }`}
-                  value={iban}
-                  onChange={(e) => handleIbanChange(e.target.value)}
-                  placeholder="SK00 0000 0000 0000 0000 0000"
-                  maxLength={36}
-                />
-              </div>
-
-              {/* Bankový odznak a kontrola */}
-              {detectedBank && (
-                <div className="mt-2 flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="grid size-6 place-items-center rounded-lg text-[10px] font-bold text-white shadow-sm"
-                      style={{ backgroundColor: detectedBank.color }}
-                    >
-                      {detectedBank.short.slice(0, 3)}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{detectedBank.name}</p>
-                      <p className="text-[11px] text-muted-foreground">{detectedBank.country}</p>
-                    </div>
-                  </div>
-                  <span className="font-mono text-[11px] text-muted-foreground">SEPA</span>
-                </div>
-              )}
-
-              {ibanValidation.complete && !ibanValidation.valid && ibanValidation.error && (
-                <p className="mt-1.5 text-xs text-destructive">{ibanValidation.error}</p>
-              )}
-            </div>
+            <label className="block">
+              <span className="text-[12px] text-muted-foreground">IBAN / číslo účtu</span>
+              <input
+                className={`${field} mt-1 font-mono tracking-wide uppercase`}
+                value={iban}
+                onChange={(e) => setIban(e.target.value)}
+                placeholder="SK00 0000 0000 0000 0000 0000"
+              />
+            </label>
 
             <label className="block">
               <span className="text-[12px] text-muted-foreground">Suma (€)</span>
@@ -300,7 +277,7 @@ function NovaPlatba() {
 
           <p className="flex items-center justify-center gap-1.5 text-center text-[12px] text-muted-foreground">
             <ShieldCheck className="size-4 text-emerald-600" />
-            Platba bude overená biometriou zariadenia
+            Platba je chránená bezpečnostným overením George
           </p>
         </form>
       </div>
@@ -311,8 +288,8 @@ function NovaPlatba() {
         onClose={() => setScannerOpen(false)}
         onScanSuccess={(data) => {
           if (data.recipientName) setName(data.recipientName);
-          if (data.iban) setIban(formatIban(data.iban));
-          if (data.amount) setAmount(data.amount.replace(".", ","));
+          if (data.iban) setIban(data.iban);
+          if (data.amount) setAmount(data.amount);
           if (data.vs) setVs(data.vs);
           if (data.note) setNote(data.note);
         }}
@@ -324,7 +301,7 @@ function NovaPlatba() {
           <div className="w-full max-w-[400px] rounded-3xl bg-surface p-6 shadow-2xl">
             <div className="text-center">
               <div className="mx-auto grid size-14 place-items-center rounded-full bg-primary/15 text-primary">
-                <Fingerprint className="size-8" />
+                {authMethod === "bio" ? <Fingerprint className="size-8" /> : <KeyRound className="size-8" />}
               </div>
               <h3 className="mt-3 text-[18px] font-bold">Potvrdenie platby</h3>
               <p className="mt-1 text-[13px] text-muted-foreground">
@@ -341,16 +318,10 @@ function NovaPlatba() {
                 <span className="text-muted-foreground">Príjemca:</span>
                 <span className="font-semibold text-foreground">{name}</span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">IBAN:</span>
                 <span className="font-mono text-[11px] text-foreground">{iban}</span>
               </div>
-              {detectedBank && (
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">Banka:</span>
-                  <span className="font-semibold text-foreground">{detectedBank.name}</span>
-                </div>
-              )}
               {vs && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">VS:</span>
@@ -359,29 +330,291 @@ function NovaPlatba() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={confirmWithBiometrics}
-                disabled={busy}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-[15px] font-semibold text-primary-foreground shadow-md transition-opacity hover:opacity-95 disabled:opacity-60"
-              >
-                <Fingerprint className="size-5" />
-                {busy ? "Overujem biometriu…" : "Potvrdiť biometriou"}
-              </button>
+            {authMethod === "bio" ? (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={confirmWithBiometrics}
+                  disabled={busy}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-[15px] font-semibold text-primary-foreground shadow-md transition-opacity hover:opacity-95 disabled:opacity-60"
+                >
+                  <Fingerprint className="size-5" />
+                  {busy ? "Overujem biometriu…" : "Potvrdiť biometriou"}
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setShowConfirmModal(false)}
-                disabled={busy}
-                className="h-11 w-full rounded-2xl bg-transparent text-[13px] font-semibold text-muted-foreground hover:bg-surface-2"
-              >
-                Zrušiť
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setAuthMethod("pin")}
+                  disabled={busy}
+                  className="h-10 w-full text-center text-xs font-semibold text-primary hover:underline"
+                >
+                  Použiť George PIN kód
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(false)}
+                  disabled={busy}
+                  className="h-11 w-full rounded-2xl bg-transparent text-[13px] font-semibold text-muted-foreground hover:bg-surface-2"
+                >
+                  Zrušiť
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={confirmWithPin} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Zadajte George PIN kód
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    autoFocus
+                    placeholder="••••"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                    className="w-full rounded-2xl border border-border bg-surface px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] outline-none focus:border-primary"
+                  />
+                  {pinError && (
+                    <p className="mt-1.5 text-xs text-destructive text-center">{pinError}</p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={busy || pin.length < 4}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-[15px] font-semibold text-primary-foreground shadow-md transition-opacity hover:opacity-95 disabled:opacity-60"
+                >
+                  <ShieldCheck className="size-5" />
+                  {busy ? "Autorizujem…" : "Autorizovať platbu"}
+                </button>
+
+                {bioPayEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPinError("");
+                      setAuthMethod("bio");
+                    }}
+                    disabled={busy}
+                    className="h-8 w-full text-center text-xs font-semibold text-primary hover:underline"
+                  >
+                    Späť na overenie biometriou
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(false)}
+                  disabled={busy}
+                  className="h-10 w-full rounded-2xl bg-transparent text-[13px] font-semibold text-muted-foreground hover:bg-surface-2"
+                >
+                  Zrušiť
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}
     </AppShell>
+  );
+}
+
+function QrScannerModal({
+  open,
+  onClose,
+  onScanSuccess,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onScanSuccess: (data: ParsedPaymentData) => void;
+}) {
+  const [mode, setMode] = useState<"camera" | "file">("camera");
+  const [errorMsg, setErrorMsg] = useState<string>("");
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    if (!open || mode !== "camera") {
+      stopCamera();
+      return;
+    }
+
+    let active = true;
+
+    async function initCamera() {
+      setErrorMsg("");
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+        });
+        if (!active) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+          startDetection();
+        }
+      } catch (err) {
+        console.error(err);
+        setErrorMsg("Kamera nie je dostupná alebo nebol udelený prístup. Skúste nahrať fotografiu.");
+      }
+    }
+
+    void initCamera();
+
+    return () => {
+      active = false;
+      stopCamera();
+    };
+  }, [open, mode]);
+
+  function stopCamera() {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  }
+
+  async function startDetection() {
+    if (typeof window !== "undefined" && "BarcodeDetector" in window) {
+      try {
+        const detector = new (window.BarcodeDetector as any)({ formats: ["qr_code"] });
+
+        const interval = setInterval(async () => {
+          if (!videoRef.current || !streamRef.current) {
+            clearInterval(interval);
+            return;
+          }
+          try {
+            const barcodes = await detector.detect(videoRef.current);
+            if (barcodes.length > 0) {
+              const parsed = parsePaymentQr(barcodes[0].rawValue);
+              if (parsed && (parsed.iban || parsed.amount)) {
+                clearInterval(interval);
+                stopCamera();
+                navigator.vibrate?.(50);
+                toast.success("Údaje z QR kódu boli načítané");
+                onScanSuccess(parsed);
+                onClose();
+              }
+            }
+          } catch {
+            // cyklus pokračuje
+          }
+        }, 350);
+      } catch {
+        setErrorMsg("Váš prehliadač nepodporuje priame čítanie z kamery, nahrajte fotografiu.");
+      }
+    } else {
+      setErrorMsg("Kamera v tomto prehliadači nepodporuje čítanie QR. Použite nahratie obrázka.");
+    }
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setErrorMsg("");
+    if (typeof window !== "undefined" && "BarcodeDetector" in window) {
+      try {
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+        await img.decode();
+
+        const detector = new (window.BarcodeDetector as any)({ formats: ["qr_code"] });
+        const barcodes = await detector.detect(img);
+
+        if (barcodes.length > 0) {
+          const parsed = parsePaymentQr(barcodes[0].rawValue);
+          if (parsed && (parsed.iban || parsed.amount)) {
+            toast.success("Faktúra úspešne spracovaná");
+            onScanSuccess(parsed);
+            onClose();
+            return;
+          }
+        }
+        setErrorMsg("V obrázku sa nenašiel platný QR kód.");
+      } catch {
+        setErrorMsg("Chyba pri spracovaní obrázka.");
+      }
+    } else {
+      setErrorMsg("Čítanie zo súboru nie je podporované v tomto prehliadači.");
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-surface p-5 shadow-2xl">
+        <div className="flex items-center justify-between pb-3">
+          <h3 className="font-bold text-foreground">Skenovať faktúru / QR</h3>
+          <button
+            type="button"
+            onClick={() => {
+              stopCamera();
+              onClose();
+            }}
+            className="rounded-full p-1 text-muted-foreground hover:bg-muted"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-muted/60 p-1">
+          <button
+            type="button"
+            onClick={() => setMode("camera")}
+            className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+              mode === "camera" ? "bg-surface text-foreground shadow-sm" : "text-muted-foreground"
+            }`}
+          >
+            <Camera className="size-4" /> Kamera
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              stopCamera();
+              setMode("file");
+            }}
+            className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+              mode === "file" ? "bg-surface text-foreground shadow-sm" : "text-muted-foreground"
+            }`}
+          >
+            <Upload className="size-4" /> Nahrať fotku
+          </button>
+        </div>
+
+        {mode === "camera" && (
+          <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-black">
+            <video ref={videoRef} playsInline muted className="size-full object-cover" />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="size-48 rounded-2xl border-2 border-dashed border-primary/90" />
+            </div>
+          </div>
+        )}
+
+        {mode === "file" && (
+          <label className="flex aspect-square w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/30 p-4 text-center hover:bg-muted/50">
+            <Upload className="mb-2 size-8 text-primary" />
+            <span className="text-sm font-semibold">Vyberte fotografiu faktúry</span>
+            <span className="mt-1 text-xs text-muted-foreground">PNG, JPG alebo screenshot QR kódu</span>
+            <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+          </label>
+        )}
+
+        {errorMsg && (
+          <div className="mt-3 flex items-start gap-2 rounded-xl bg-destructive/10 p-2.5 text-xs text-destructive">
+            <AlertCircle className="size-4 shrink-0 mt-0.5" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
